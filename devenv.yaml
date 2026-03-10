@@ -3,3 +3,11 @@ allowUnfree: true
 inputs:
   nixpkgs:
     url: github:cachix/devenv-nixpkgs/rolling
+  claude-code-nix:
+    url: github:sadjow/claude-code-nix
+    inputs:
+      nixpkgs:
+        follows: nixpkgs
+
+imports:
+  - ./devenv.nix

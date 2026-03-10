@@ -2,8 +2,11 @@
 
 {
   packages = with pkgs; [
-    babashka
+    git
     gh
+    babashka
+    socat              # For Claude Code sandboxing
+    inputs.claude-code-nix.packages.${pkgs.stdenv.hostPlatform.system}.default
   ];
 
   claude.code.enable = true;
