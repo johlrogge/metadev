@@ -9,6 +9,32 @@
     inputs.claude-code-nix.packages.${pkgs.stdenv.hostPlatform.system}.default
   ];
 
+  enterShell = ''
+    echo ""
+    echo "=== metadev ==="
+    echo "Your development meta-environment."
+    echo ""
+    echo "Commands:"
+    echo "  claude                          Start Claude Code here (brainstorm, manage tools)"
+    echo "  devenv -d <path> shell -- claude   Run Claude in another project's devenv"
+    echo ""
+    echo "Bootstrap a new project:"
+    echo "  1. mkdir ~/projects/new-project && cd ~/projects/new-project && git init"
+    echo "  2. Copy devenv.yaml template from metadev README"
+    echo "  3. devenv shell && claude"
+    echo ""
+    echo "Projects:"
+    for d in ~/projects/*/; do
+      name=$(basename "$d")
+      if [ -f "$d/devenv.yaml" ] || [ -f "$d/devenv.nix" ]; then
+        echo "  $name (devenv)"
+      else
+        echo "  $name"
+      fi
+    done
+    echo ""
+  '';
+
   claude.code.enable = true;
 
   claude.code.agents = {
