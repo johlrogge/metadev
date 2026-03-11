@@ -19,7 +19,7 @@ When running Claude in metadev, you are an **orchestrator across projects**. You
 Projects live in `~/projects/`. Projects with a `devenv.yaml` that imports metadev get shared agents automatically.
 
 Known projects:
-- `modular-digital-music-array` — Distributed DJ system (Rust, Raspberry Pi)
+- `modular-digital-music-array` (aka `mdma`) — Distributed DJ system (Rust, Raspberry Pi)
 - `stainless-facts` — Facts/knowledge management
 - `ctx` — Context management
 - `corsett` — (needs devenv setup)
@@ -44,6 +44,45 @@ metadev/
 ├── CLAUDE.md          # This file
 └── README.md          # Usage documentation
 ```
+
+## Working in Projects
+
+**Always enter a project's devenv before running commands in it.** This ensures the correct tools, agents, and environment are available.
+
+```bash
+# Run a command in a project's devenv
+devenv -d ~/projects/<project> shell -- <command>
+
+# Run Claude in a project's devenv
+devenv -d ~/projects/<project> shell -- claude "<task>"
+```
+
+If a project has no `devenv.nix`, create one that imports metadev:
+
+```nix
+{ inputs, ... }:
+{
+  imports = [ inputs.metadev.devenvModules.default ];
+
+  # Add project-specific configuration here
+}
+```
+
+And a `devenv.yaml` with metadev as an input:
+
+```yaml
+inputs:
+  metadev:
+    url: path:///home/johlrogge/projects/metadev
+```
+
+When `devenv.nix` doesn't exist and a command or tool is missing, create an ad-hoc environment:
+
+```bash
+devenv -d ~/projects/<project> -O languages.rust.enable:bool true -O packages:pkgs "mypackage" shell -- <command>
+```
+
+When the setup becomes complex, create `devenv.nix` and `devenv.yaml` as above instead.
 
 ## Conventions
 
