@@ -72,19 +72,19 @@ in
   claude.code.mcpServers.git-read = {
     type = "stdio";
     command = "bb";
-    args = [ "${toString ./.}/tools/git-read/server.bb" ];
+    args = [ "${./.}/tools/git-read/server.bb" ];
   };
 
   claude.code.mcpServers.git-write = {
     type = "stdio";
     command = "bb";
-    args = [ "${toString ./.}/tools/git-write/server.bb" ];
+    args = [ "${./.}/tools/git-write/server.bb" ];
   };
 
   claude.code.mcpServers.just = {
     type = "stdio";
     command = "bb";
-    args = [ "${toString ./.}/tools/just/server.bb" ];
+    args = [ "${./.}/tools/just/server.bb" ];
   };
 
   claude.code.agents = {
