@@ -81,6 +81,12 @@ in
     args = [ "${toString ./.}/tools/git-write/server.bb" ];
   };
 
+  claude.code.mcpServers.just = {
+    type = "stdio";
+    command = "bb";
+    args = [ "${toString ./.}/tools/just/server.bb" ];
+  };
+
   claude.code.agents = {
     brainstorm = {
       description = "Brainstorming facilitator. Draws ideas out of you through questions and reflections, builds on your ideas as suggestions, never acts without your confirmation.";
