@@ -101,7 +101,7 @@ in
   };
 
   claude.code.agents = {
-    brainstorm = {
+    brainstorm = lib.mkDefault {
       description = "Brainstorming facilitator. Draws ideas out of you through questions and reflections, builds on your ideas as suggestions, never acts without your confirmation.";
       model = "opus";
       proactive = false;
@@ -156,7 +156,7 @@ in
       '';
     };
 
-    commit = {
+    commit = lib.mkDefault {
       description = "Commit agent. Runs git add and git commit. Never pushes.";
       model = "haiku";
       proactive = false;
@@ -177,7 +177,7 @@ in
       '';
     };
 
-    documenter = {
+    documenter = lib.mkDefault {
       description = "Documentation updater. Maintains README files across the workspace as part of the release process.";
       model = "sonnet";
       proactive = false;
@@ -207,7 +207,7 @@ in
       '';
     };
 
-    product-owner = {
+    product-owner = lib.mkDefault {
       description = "Product ownership and strategic guidance. Keeps projects focused on delivering continuous value. Reads VISION.md and ROADMAP.md for project context.";
       model = "opus";
       proactive = false;
@@ -247,7 +247,7 @@ in
       '';
     };
 
-    devops = {
+    devops = lib.mkDefault {
       description = "DevOps agent. Manages git flow lifecycle: features, releases, and hotfixes. Never pushes — that stays with the human.";
       model = "sonnet";
       proactive = false;
@@ -309,7 +309,7 @@ in
       '';
     };
 
-    toolsmith = {
+    toolsmith = lib.mkDefault {
       description = "Creates MCP tool servers (Babashka/Clojure) that give other agents structured, permission-free access to specific capabilities.";
       model = "sonnet";
       proactive = false;
