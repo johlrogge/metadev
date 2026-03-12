@@ -1,0 +1,1 @@
+/nix/store/l5vfdf9sg6j5hp726ya46sr1b22xnwxb-claude-agents-rust-architect.md
