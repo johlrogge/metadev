@@ -1,0 +1,1 @@
+/nix/store/2ycz0fm19xk2avv6pvrfg3ksgmk81q6r-claude-agents-toolsmith.md

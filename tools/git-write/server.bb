@@ -4,7 +4,7 @@
          '[cheshire.core :as json])
 
 ;; git-write MCP server
-;; Exposes safe, scoped git write operations: add, commit, stash
+;; Exposes safe, scoped git write operations: add, commit, stash, checkout, git-flow
 ;; Deliberately excludes: push, reset --hard, force operations, branch deletion
 
 (defn run-git [repo-path & args]
@@ -41,6 +41,38 @@
     (throw (ex-info (str "action must be 'push' or 'pop', got: " action) {})))
   (format-result (run-git path "stash" action)))
 
+(defn valid-branch-name? [s]
+  (and (not (str/blank? s))
+       (re-matches #"[a-zA-Z0-9._/-]+" s)))
+
+(defn git-checkout [path branch]
+  (when (str/blank? branch)
+    (throw (ex-info "branch is required" {})))
+  (when-not (valid-branch-name? branch)
+    (throw (ex-info "branch must be a valid alphanumeric branch name" {})))
+  (format-result (run-git path "checkout" branch)))
+
+(def allowed-flow-actions
+  #{"feature start" "feature finish" "feature list"
+    "release start" "release finish"
+    "hotfix start" "hotfix finish"
+    "init"})
+
+(defn git-flow [path action name]
+  (when (str/blank? action)
+    (throw (ex-info "action is required" {})))
+  (when-not (contains? allowed-flow-actions action)
+    (throw (ex-info (str "action must be one of: " (str/join ", " (sort allowed-flow-actions))) {})))
+  (let [action-parts (str/split action #"\s+")
+        cmd-args     (if (str/blank? name)
+                       action-parts
+                       (conj (vec action-parts) name))
+        result       (apply p/shell {:out :string :err :string :dir path}
+                            (into ["git" "flow"] cmd-args))]
+    (format-result (if (zero? (:exit result))
+                     {:ok true :output (str/trim (:out result))}
+                     {:ok false :output (str/trim (:err result))}))))
+
 (defn handle-tool-call [name arguments]
   (try
     (case name
@@ -52,6 +84,12 @@
 
       "git_stash"
       (git-stash (:path arguments) (:action arguments))
+
+      "git_checkout"
+      (git-checkout (:path arguments) (:branch arguments))
+
+      "git_flow"
+      (git-flow (:path arguments) (:action arguments) (:name arguments))
 
       (str "Unknown tool: " name))
     (catch clojure.lang.ExceptionInfo e
@@ -75,6 +113,26 @@
     :inputSchema {:type "object"
                   :properties {"path"   {:type "string" :description "Absolute path to the git repository root"}
                                "action" {:type "string" :enum ["push" "pop"] :description "'push' to stash current changes, 'pop' to restore the most recent stash"}}
+                  :required ["path" "action"]}}
+
+   {:name "git_checkout"
+    :description "Checkout an existing branch."
+    :inputSchema {:type "object"
+                  :properties {"path"   {:type "string" :description "Absolute path to the git repository root"}
+                               "branch" {:type "string" :description "Branch name to checkout. Must already exist."}}
+                  :required ["path" "branch"]}}
+
+   {:name "git_flow"
+    :description "Run a git flow command. Supports feature/release/hotfix start and finish, feature list, and init."
+    :inputSchema {:type "object"
+                  :properties {"path"   {:type "string" :description "Absolute path to the git repository root"}
+                               "action" {:type "string"
+                                         :enum ["feature start" "feature finish" "feature list"
+                                                "release start" "release finish"
+                                                "hotfix start" "hotfix finish"
+                                                "init"]
+                                         :description "The git flow sub-command to run"}
+                               "name"   {:type "string" :description "Branch or version name. Required for start/finish actions; omit for 'feature list' and 'init'."}}
                   :required ["path" "action"]}}])
 
 (loop []

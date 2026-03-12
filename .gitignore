@@ -1,2 +1,4 @@
 .devenv*
 devenv.local.nix
+.mcp.json
+.claude/settings.local.json
