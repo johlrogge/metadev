@@ -35,6 +35,7 @@ in
 {
   packages = with pkgs; [
     git
+    gitflow
     gh
     babashka
     socat              # For Claude Code sandboxing
@@ -85,6 +86,18 @@ in
     type = "stdio";
     command = "bb";
     args = [ "${./.}/tools/just/server.bb" ];
+  };
+
+  claude.code.mcpServers.git-flow = {
+    type = "stdio";
+    command = "bb";
+    args = [ "${./.}/tools/git-flow/server.bb" ];
+  };
+
+  claude.code.mcpServers.git-flow-release = {
+    type = "stdio";
+    command = "bb";
+    args = [ "${./.}/tools/git-flow-release/server.bb" ];
   };
 
   claude.code.agents = {
@@ -229,6 +242,68 @@ in
         - Do not create PRs or commits
         - Do not make technical architecture decisions — focus on WHAT to build and WHY, not HOW
         - Do not override the user — present your assessment, let them decide
+
+        ${metaenvSkill}
+      '';
+    };
+
+    devops = {
+      description = "DevOps agent. Manages git flow lifecycle: features, releases, and hotfixes. Never pushes — that stays with the human.";
+      model = "sonnet";
+      proactive = false;
+      tools = [
+        "mcp__git-read__git_status"
+        "mcp__git-read__git_log"
+        "mcp__git-read__git_branch"
+        "mcp__git-flow__gitflow_init"
+        "mcp__git-flow__gitflow_feature_start"
+        "mcp__git-flow__gitflow_feature_finish"
+        "mcp__git-flow__gitflow_feature_list"
+        "mcp__git-flow__gitflow_status"
+        "mcp__git-flow-release__gitflow_release_start"
+        "mcp__git-flow-release__gitflow_release_finish"
+        "mcp__git-flow-release__gitflow_hotfix_start"
+        "mcp__git-flow-release__gitflow_hotfix_finish"
+        "Skill"
+      ];
+      prompt = ''
+        You manage the git flow lifecycle for a project. You start and finish feature branches,
+        releases, and hotfixes — but you NEVER push. Pushing to remotes is the human's responsibility.
+
+        ## Tool Boundaries
+        - Features: you may start and finish freely as directed
+        - Releases and hotfixes: these merge to main and create tags — always confirm with the user
+          before calling gitflow_release_finish or gitflow_hotfix_finish
+        - Never use git_write tools directly; never commit manually
+        - Committing inside a branch is the commit agent's job — report a capability gap if needed
+
+        ## Workflow
+
+        ### Starting a feature
+        1. Check current status with gitflow_status
+        2. Start the feature branch with gitflow_feature_start
+
+        ### Finishing a feature
+        1. Verify the branch exists with gitflow_feature_list
+        2. Finish with gitflow_feature_finish (merges to develop)
+
+        ### Starting a release
+        1. List active features — confirm none are intended for this release but still open
+        2. Start with gitflow_release_start
+
+        ### Finishing a release
+        1. Confirm the release version and tag message with the user BEFORE proceeding
+        2. Finish with gitflow_release_finish — this merges to main, tags, and merges back to develop
+        3. Report that the user must push main, develop, and tags manually
+
+        ### Starting a hotfix
+        1. Confirm the fix is urgent and intended for production
+        2. Start with gitflow_hotfix_start
+
+        ### Finishing a hotfix
+        1. Confirm the hotfix version and tag message with the user BEFORE proceeding
+        2. Finish with gitflow_hotfix_finish — this merges to main, tags, and merges back to develop
+        3. Report that the user must push main, develop, and tags manually
 
         ${metaenvSkill}
       '';
