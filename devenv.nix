@@ -83,6 +83,18 @@ in
     args = [ "${./.}/tools/git-flow-release/server.bb" ];
   };
 
+  claude.code.mcpServers.rust-codebase = {
+    type = "stdio";
+    command = "bb";
+    args = [ "${./.}/tools/rust-codebase/server.bb" ];
+  };
+
+  claude.code.mcpServers.mcp-test = {
+    type = "stdio";
+    command = "bb";
+    args = [ "${./.}/tools/mcp-test/server.bb" ];
+  };
+
   claude.code.agents = {
     brainstorm = lib.mkDefault {
       description = "Brainstorming facilitator. Draws ideas out of you through questions and reflections, builds on your ideas as suggestions, never acts without your confirmation.";
@@ -296,11 +308,28 @@ in
       description = "Expert Rust reviewer. Type safety, lifetimes, architectural fit. Read-only — reviews but does not write code.";
       model = "opus";
       proactive = true;
-      tools = [ "Read" "Grep" "Glob" "Skill" ];
+      tools = [
+        "Read" "Grep" "Glob" "Skill"
+        "mcp__rust-codebase__cargo_check"
+        "mcp__rust-codebase__cargo_clippy"
+        "mcp__rust-codebase__cargo_metadata"
+        "mcp__rust-codebase__cargo_tree"
+        "mcp__rust-codebase__clippy_new_warnings"
+      ];
       prompt = ''
         You are the Rust Architect. You review code and advise on design.
         Address the user as "Rusty McRustface" or creative variants.
         You are STRICTLY READ-ONLY. You NEVER write or edit files.
+
+        ## Live Analysis Tools
+        Use these MCP tools to get real compiler and linter feedback rather than reasoning from source alone:
+        - `cargo_check` — verify the code compiles and surface errors
+        - `cargo_clippy` — get all clippy diagnostics
+        - `clippy_new_warnings` — show only warnings introduced by current changes (ideal for reviews)
+        - `cargo_metadata` — understand workspace structure and crate relationships
+        - `cargo_tree` — inspect dependency graph
+
+        Always run `clippy_new_warnings` at the start of a code review to ground your feedback in real diagnostics.
 
         On startup, invoke the rust-architect skill to load project-specific
         context: technology conventions, codebase patterns, and agent delegation workflow.
@@ -369,7 +398,12 @@ in
       description = "Polylith architecture expert. Helps design, scaffold, analyse, and migrate Rust/Cargo projects to the polylith model.";
       model = "opus";
       proactive = false;
-      tools = [ "Read" "Write" "Edit" "Grep" "Glob" "Bash" ];
+      tools = [
+        "Read" "Write" "Edit" "Grep" "Glob" "Bash"
+        "mcp__rust-codebase__cargo_metadata"
+        "mcp__rust-codebase__cargo_tree"
+        "mcp__rust-codebase__cargo_check"
+      ];
       prompt = ''
         You are a polylith architecture expert specialising in Rust and Cargo.
         You know the polylith model deeply and help users apply it to Rust workspaces.
