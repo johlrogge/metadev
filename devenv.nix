@@ -413,11 +413,12 @@ in
         ### Core concepts
         - **Component** — encapsulated domain logic. Its public interface is the `pub` items in `lib.rs`
           (re-exported from private submodules). Nothing else is importable by other bricks.
-        - **Base** — a thin entry-point skeleton (HTTP server, CLI, Lambda, etc.). It wires components
-          together but does not hardcode which implementations are used. Not a binary on its own.
-        - **Project** — a deployment context. Selects N bases + M components → produces N binaries.
-          Represented as a Cargo workspace root under `projects/<name>/`. All bases in a project share
-          the same component pool.
+        - **Base** — a **library crate** (`src/lib.rs`) that exposes a runtime API (HTTP, IPC, CLI,
+          gRPC …) as ordinary Rust functions (`run()`, `serve()`, `create_sockets()`). Bases must NOT
+          have `src/main.rs` — if a base were a binary, two bases could never share one process.
+        - **Project** — a deployment context. Owns `src/main.rs` and calls the bases' runtime-API
+          functions. Projects CAN depend on components directly (valid polylith). Projects MUST depend
+          on at least one base. Represented as a Cargo workspace root under `projects/<name>/`.
         - **Development workspace** — the repo root `Cargo.toml`. Lists ALL components and bases as
           members. Used for IDE support, `cargo check`, and day-to-day development. Not deployable.
 
@@ -432,13 +433,14 @@ in
               src/
                 lib.rs            ← ONLY pub re-exports from private submodules
                 <impl>.rs         ← private implementation
-          bases/                  ← entry-point crates (NOT a workspace root)
+          bases/                  ← runtime-API library crates (lib only, no main.rs)
             <name>/
               Cargo.toml
-              src/main.rs
+              src/lib.rs          ← pub fn run(...) / serve(...) / create_sockets(...)
           projects/
             <name>/
-              Cargo.toml          ← project workspace root
+              Cargo.toml          ← project workspace root + [package] + [[bin]]
+              src/main.rs         ← entry point: calls base fns, wires components
               .cargo/config.toml  ← if needed for [patch] or target-dir override
         ```
 
@@ -499,7 +501,7 @@ in
         ### Scaffolding
         When asked to create bricks or projects:
         - `component new <name>` → create `components/<name>/` with proper `lib.rs` re-export skeleton
-        - `base new <name>` → create `bases/<name>/` with `main.rs` and Cargo.toml
+        - `base new <name>` → create `bases/<name>/` with `lib.rs` (pub fn run() skeleton) and Cargo.toml
         - `project new <name>` → create `projects/<name>/Cargo.toml` workspace manifest
         - Update the root development workspace `Cargo.toml` members list
 
@@ -507,6 +509,18 @@ in
         When a base needs a component:
         - Add `<component> = { path = "../../components/<component>" }` to the base's Cargo.toml
         - Never use absolute paths — always relative
+
+        ### `cargo polylith check` violations
+        | Violation                | Kind    | Exit |
+        |--------------------------|---------|------|
+        | Component missing lib.rs | error   | 1    |
+        | Base missing lib.rs      | error   | 1    |
+        | Base has main.rs         | warning | 0    |
+        | Base depends on base     | error   | 1    |
+        | Project has no base dep  | warning | 0    |
+        | Component not reachable  | warning | 0    |
+        | Wildcard re-export       | warning | 0    |
+        Projects depending directly on components is valid and not flagged.
 
         ### Analysis
         When asked for an overview:
@@ -530,9 +544,12 @@ in
         5. Set up the shared `.cargo/config.toml`
 
         ## Known Project: mdma
-        The `modular-digital-music-array` project at `~/projects/mdma` is the primary migration target.
-        It has 27 components and 11 bases in a single Cargo workspace (Option A). The goal is to
-        convert it to the proper polylith layout (Option B) using this toolbox.
+        The `modular-digital-music-array` project at `~/projects/modular-digital-music-array` is the
+        primary migration target. It has 25 components and 3 bases, plus a `projects/` layer with 9
+        projects. Most bases are correctly lib crates (`http-server` exposes `serve()`, `service`
+        exposes `create_sockets()`); `mdma-library` base incorrectly has `main.rs` instead of `lib.rs`.
+        Three projects (`mdma-cli`, `mdma-gateway`, `mdma-tui`) have no base dependency yet.
+        `cargo polylith check` reports these violations to guide the migration.
 
         ${metaenvSkill}
       '';

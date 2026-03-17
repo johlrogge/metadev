@@ -33,10 +33,28 @@ pub fn get_user(id: UserId) -> Result<User> { ... }
 **No traits required.** The interface is plain named functions, as Joakim Tengstrand (polylith inventor) intends. The crate's pub surface IS the interface contract.
 
 ### Base
-A Cargo binary crate under `bases/<name>/`. Thin wiring — it receives external input (HTTP request, CLI args) and calls component functions. A base is **not a standalone binary**; it becomes one only when assembled in a project.
+A Cargo **library crate** under `bases/<name>/`. Exposes a runtime API (HTTP server, CLI, IPC, gRPC …) as ordinary Rust functions (`run()`, `serve()`, `create_sockets()`). Bases wire components together but do not hardcode which implementations are used.
+
+**Bases must NOT have `src/main.rs`.** If a base were a binary, two bases could never share one process.
+
+```
+bases/http_api/
+  Cargo.toml
+  src/
+    lib.rs        ← pub fn serve(...) / run(...) / create_sockets(...)
+    handler.rs    ← private implementation
+```
 
 ### Project
-A Cargo workspace root under `projects/<name>/`. It selects which bases and components to assemble into deployable binaries. A project has **no source code** — all logic lives in bricks. Each project produces one or more binaries (one per base).
+A Cargo workspace root under `projects/<name>/`. Owns `src/main.rs` and calls the bases' runtime-API functions. Projects CAN depend on components directly (valid polylith). Projects MUST depend on at least one base.
+
+```
+projects/production/
+  Cargo.toml      ← project workspace root + [package] + [[bin]]
+  src/main.rs     ← entry point: calls base fns, wires components
+```
+
+A project has **no domain logic** — all logic lives in bricks. The `main.rs` is a thin wiring point.
 
 ### Development Workspace
 The repo root `Cargo.toml`. Lists ALL components and bases as members. Used for `cargo check`, IDE support, and day-to-day development. Not a deployment artifact.
@@ -56,16 +74,32 @@ repo-root/
       Cargo.toml
       src/lib.rs
       src/user.rs
-  bases/                  ← entry-point crates (NOT a workspace root)
+  bases/                  ← runtime-API library crates (lib only, no main.rs)
     http_api/
       Cargo.toml
-      src/main.rs
+      src/lib.rs          ← pub fn serve(...)
   projects/
     production/
-      Cargo.toml          ← project workspace root
+      Cargo.toml          ← project workspace root + [package] + [[bin]]
+      src/main.rs         ← entry point: calls base fns
     test-env/
       Cargo.toml          ← different implementation choices
+      src/main.rs
 ```
+
+## `cargo polylith check` Violations
+
+| Violation                | Kind    | Exit |
+|--------------------------|---------|------|
+| Component missing lib.rs | error   | 1    |
+| Base missing lib.rs      | error   | 1    |
+| Base has main.rs         | warning | 0    |
+| Base depends on base     | error   | 1    |
+| Project has no base dep  | warning | 0    |
+| Component not reachable  | warning | 0    |
+| Wildcard re-export       | warning | 0    |
+
+Projects depending directly on components is valid and not flagged.
 
 ## Swappable Implementations
 
@@ -121,9 +155,22 @@ A project workspace lists bases as `[workspace].members`. Components are not wor
 # projects/production/Cargo.toml
 [workspace]
 members = [
+  ".",
   "../../bases/http_api",
   "../../bases/cli",
 ]
+
+[package]
+name = "production"
+version = "0.1.0"
+
+[[bin]]
+name = "production"
+path = "src/main.rs"
+
+[dependencies]
+http_api = { path = "../../bases/http_api" }
+cli      = { path = "../../bases/cli" }
 
 [workspace.dependencies]
 user     = { path = "../../components/user" }
@@ -163,16 +210,19 @@ This gives full IDE support and lets you run `cargo check` across the entire cod
 Managing this structure by hand is tedious. `cargo-polylith` handles:
 
 - **Scaffolding**: `cargo polylith component new <name>` creates the crate with the correct `lib.rs` re-export skeleton
+- **Base scaffolding**: `cargo polylith base new <name>` creates `bases/<name>/` with `lib.rs` (pub fn run() skeleton) and Cargo.toml
 - **Dependency wiring**: `cargo polylith base add-dep <base> <component>` adds the `workspace = true` dep and updates the project workspace dependencies
 - **Project management**: `cargo polylith project new <name>` generates the project workspace manifest
 - **Overview**: `cargo polylith deps` shows which components are used by which bases and projects
-- **Interface checking**: `cargo polylith check` verifies that alternative implementations expose the same pub surface
+- **Interface checking**: `cargo polylith check` verifies structural correctness and reports violations
 
 ## Polylith in mdma
 
-The `modular-digital-music-array` project currently uses a single Cargo workspace (all 27 components + 11 bases as members). This is polylith-shaped but lacks:
-- The `projects/` layer (bases act as full standalone binaries)
-- Workspace-inherited deps (each base hardcodes `path = "../../components/..."`)
-- Interface boundary enforcement (no `lib.rs` re-export convention)
+The `modular-digital-music-array` project at `~/projects/modular-digital-music-array` is the primary migration target. It has 25 components and 3 bases, plus a `projects/` layer with 9 projects.
 
-Migration to proper polylith is a goal, to be facilitated by `cargo-polylith`.
+Current status:
+- Most bases are correctly lib crates: `http-server` exposes `serve()`, `service` exposes `create_sockets()`
+- `mdma-library` base incorrectly has `main.rs` instead of `lib.rs` (flagged as warning by `cargo polylith check`)
+- Three projects (`mdma-cli`, `mdma-gateway`, `mdma-tui`) have no base dependency yet (flagged as warnings)
+
+`cargo polylith check` reports these violations to guide the migration.
