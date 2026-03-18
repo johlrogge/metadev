@@ -32,6 +32,18 @@ pub fn get_user(id: UserId) -> Result<User> { ... }
 
 **No traits required.** The interface is plain named functions, as Joakim Tengstrand (polylith inventor) intends. The crate's pub surface IS the interface contract.
 
+### Interface metadata
+Cargo-polylith uses an explicit metadata declaration in each component's `Cargo.toml`:
+
+```toml
+[package.metadata.polylith]
+interface = "user"
+```
+
+New components get this automatically (`component new` defaults `interface` to the crate name).
+Existing components can be updated with `component update <name> [--interface <NAME>]`.
+`cargo polylith check` warns for any component missing this declaration.
+
 ### Base
 A Cargo **library crate** under `bases/<name>/`. Exposes a runtime API (HTTP server, CLI, IPC, gRPC …) as ordinary Rust functions (`run()`, `serve()`, `create_sockets()`). Bases wire components together but do not hardcode which implementations are used.
 
@@ -91,13 +103,17 @@ repo-root/
 
 | Violation                | Kind    | Exit |
 |--------------------------|---------|------|
-| Component missing lib.rs | error   | 1    |
-| Base missing lib.rs      | error   | 1    |
-| Base has main.rs         | warning | 0    |
-| Base depends on base     | error   | 1    |
-| Project has no base dep  | warning | 0    |
-| Component not reachable  | warning | 0    |
-| Wildcard re-export       | warning | 0    |
+| Component missing lib.rs    | error   | 1    |
+| Base missing lib.rs         | error   | 1    |
+| Base has main.rs            | warning | 0    |
+| Base depends on base        | error   | 1    |
+| Project has no base dep     | warning | 0    |
+| Component not reachable     | warning | 0    |
+| Wildcard re-export          | warning | 0    |
+| Missing interface metadata  | warning | 0    |
+| Ambiguous interface         | warning | 0    |
+| Duplicate package name      | warning | 0    |
+| Not in workspace members    | warning | 0    |
 
 Projects depending directly on components is valid and not flagged.
 
@@ -209,20 +225,22 @@ This gives full IDE support and lets you run `cargo check` across the entire cod
 
 Managing this structure by hand is tedious. `cargo-polylith` handles:
 
-- **Scaffolding**: `cargo polylith component new <name>` creates the crate with the correct `lib.rs` re-export skeleton
+- **Scaffolding**: `cargo polylith component new <name> [--interface <NAME>]` — always creates interface metadata (defaults to crate name)
+- **Interface update**: `cargo polylith component update <name> [--interface <NAME>]` — set/replace interface on an existing component
 - **Base scaffolding**: `cargo polylith base new <name>` creates `bases/<name>/` with `lib.rs` (pub fn run() skeleton) and Cargo.toml
-- **Dependency wiring**: `cargo polylith base add-dep <base> <component>` adds the `workspace = true` dep and updates the project workspace dependencies
 - **Project management**: `cargo polylith project new <name>` generates the project workspace manifest
 - **Overview**: `cargo polylith deps` shows which components are used by which bases and projects
 - **Interface checking**: `cargo polylith check` verifies structural correctness and reports violations
+- **Interactive editor**: `cargo polylith edit` — TUI to toggle project/component connections, set interface names ('i' key), write all staged changes to disk ('w')
 
 ## Polylith in mdma
 
-The `modular-digital-music-array` project at `~/projects/modular-digital-music-array` is the primary migration target. It has 25 components and 3 bases, plus a `projects/` layer with 9 projects.
+The `modular-digital-music-array` project at `~/projects/modular-digital-music-array` is the primary migration target. It has 27 components and 11 bases, plus a `projects/` layer with 9 projects.
 
 Current status:
 - Most bases are correctly lib crates: `http-server` exposes `serve()`, `service` exposes `create_sockets()`
 - `mdma-library` base incorrectly has `main.rs` instead of `lib.rs` (flagged as warning by `cargo polylith check`)
 - Three projects (`mdma-cli`, `mdma-gateway`, `mdma-tui`) have no base dependency yet (flagged as warnings)
+- All components currently have no interface metadata — `cargo polylith check` will produce 27+ `missing-interface` warnings until `[package.metadata.polylith] interface` is added to each
 
 `cargo polylith check` reports these violations to guide the migration.

@@ -451,28 +451,26 @@ in
         - Other bricks may only depend on the component crate, never on its submodules directly
         - No traits required — plain named functions, as Joakim Tengstrand intends
 
+        ### Interface metadata
+        Every component declares its interface name in Cargo.toml:
+        ```toml
+        [package.metadata.polylith]
+        interface = "user"   # the logical interface this component implements
+        ```
+        Multiple components may share the same interface name (canonical + stubs/alternatives).
+        `cargo polylith check` warns when a component lacks this declaration.
+
         ### Swappable implementations
-        Alternative implementations share the same Cargo package name:
+        The tool uses direct path deps in bases and `[patch.crates-io]` in projects.
+        The alternative component has a different package name but the same `interface` metadata:
         ```toml
-        # components/user_inmemory/Cargo.toml
-        [package]
-        name = "user"   # same name as the canonical components/user/
-        ```
-        Bases declare component deps as workspace-inherited:
-        ```toml
-        # bases/http_api/Cargo.toml
+        # Base Cargo.toml — direct path dep to the default implementation
         [dependencies]
-        user = { workspace = true }
-        ```
-        Each project workspace defines which path `user` resolves to:
-        ```toml
-        # projects/production/Cargo.toml
-        [workspace.dependencies]
         user = { path = "../../components/user" }
 
-        # projects/test-env/Cargo.toml
-        [workspace.dependencies]
-        user = { path = "../../components/user_inmemory" }
+        # Project Cargo.toml — patch in an alternative
+        [patch.crates-io]
+        user = { path = "../../components/user_inmemory", package = "user-inmemory" }
         ```
         The compiler enforces compatibility — missing or wrong-signature functions are
         compile errors everywhere they are called. No traits required.
@@ -500,10 +498,11 @@ in
 
         ### Scaffolding
         When asked to create bricks or projects:
-        - `component new <name>` → create `components/<name>/` with proper `lib.rs` re-export skeleton
-        - `base new <name>` → create `bases/<name>/` with `lib.rs` (pub fn run() skeleton) and Cargo.toml
-        - `project new <name>` → create `projects/<name>/Cargo.toml` workspace manifest
-        - Update the root development workspace `Cargo.toml` members list
+        - `component new <name> [--interface <NAME>]` → creates component with interface metadata (defaults to crate name); updates root workspace members
+        - `component update <name> [--interface <NAME>]` → writes/updates `[package.metadata.polylith] interface` on an existing component
+        - `base new <name>` → creates `bases/<name>/` with `lib.rs` and Cargo.toml; updates root workspace members
+        - `project new <name>` → creates `projects/<name>/Cargo.toml` workspace manifest
+        - `edit` → interactive TUI: Space toggles project deps, 'i' edits interface name inline, 'w' writes all staged changes to disk
 
         ### Dependency wiring
         When a base needs a component:
@@ -511,15 +510,19 @@ in
         - Never use absolute paths — always relative
 
         ### `cargo polylith check` violations
-        | Violation                | Kind    | Exit |
-        |--------------------------|---------|------|
-        | Component missing lib.rs | error   | 1    |
-        | Base missing lib.rs      | error   | 1    |
-        | Base has main.rs         | warning | 0    |
-        | Base depends on base     | error   | 1    |
-        | Project has no base dep  | warning | 0    |
-        | Component not reachable  | warning | 0    |
-        | Wildcard re-export       | warning | 0    |
+        | Violation                   | Kind    | Exit |
+        |-----------------------------|---------|------|
+        | Component missing lib.rs    | error   | 1    |
+        | Base missing lib.rs         | error   | 1    |
+        | Base has main.rs            | warning | 0    |
+        | Base depends on base        | error   | 1    |
+        | Project has no base dep     | warning | 0    |
+        | Component not reachable     | warning | 0    |
+        | Wildcard re-export          | warning | 0    |
+        | Missing interface metadata  | warning | 0    |
+        | Ambiguous interface         | warning | 0    |
+        | Duplicate package name      | warning | 0    |
+        | Not in workspace members    | warning | 0    |
         Projects depending directly on components is valid and not flagged.
 
         ### Analysis
@@ -545,10 +548,12 @@ in
 
         ## Known Project: mdma
         The `modular-digital-music-array` project at `~/projects/modular-digital-music-array` is the
-        primary migration target. It has 25 components and 3 bases, plus a `projects/` layer with 9
+        primary migration target. It has 27 components and 11 bases, plus a `projects/` layer with 9
         projects. Most bases are correctly lib crates (`http-server` exposes `serve()`, `service`
         exposes `create_sockets()`); `mdma-library` base incorrectly has `main.rs` instead of `lib.rs`.
         Three projects (`mdma-cli`, `mdma-gateway`, `mdma-tui`) have no base dependency yet.
+        All components currently lack interface metadata — `cargo polylith check` will produce 27+
+        `missing-interface` warnings until `[package.metadata.polylith] interface` is added to each.
         `cargo polylith check` reports these violations to guide the migration.
 
         ${metaenvSkill}
