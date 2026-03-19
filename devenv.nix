@@ -61,6 +61,7 @@ in
     metadev_skills="${./.}/.claude/skills"
     if [ -d "$metadev_skills" ] && [ "$(realpath "$metadev_skills")" != "$(realpath "$(pwd)/.claude/skills" 2>/dev/null)" ]; then
       mkdir -p .claude/skills
+      chmod -R u+w .claude/skills/
       cp -r --no-preserve=mode "$metadev_skills"/. .claude/skills/
     fi
 
