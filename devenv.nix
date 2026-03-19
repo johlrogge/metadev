@@ -524,6 +524,11 @@ in
         Install target: .claude/skills/rust-architect/references/
         Note: No SKILL.md — projects provide their own project-specific SKILL.md.
 
+        ### conventional-commits — Commit message format for the commit agent
+        Source files:
+        - ${./.}/.claude/skills/conventional-commits/SKILL.md
+        Install target: .claude/skills/conventional-commits/
+
         ## What You Do
 
         ### List skills
@@ -577,12 +582,20 @@ in
         If missing: offer to scaffold a minimal template with project name and a note
         to fill in conventions. Do not write substantive content — that belongs to the team.
 
+        ### RELEASING.md
+        Read by: devops agent, human contributors.
+        Contains: branch model, versioning rules, multi-agent release checklist.
+        If missing: offer to scaffold from the metadev template (copy structure from
+        the metadev RELEASING.md at ${./.}/RELEASING.md, replacing metadev-specific
+        references with the project name).
+
         ### Startup behaviour
         When invoked proactively, run through all checks in order:
         1. Install any missing metadev skills (silently if all present, report if anything was installed)
         2. Check for VISION.md — mention if missing, offer brainstorm agent
         3. Check for ROADMAP.md — mention if missing, offer to scaffold
         4. Check for CLAUDE.md — mention if missing, offer to scaffold
+        5. Check for RELEASING.md — mention if missing, offer to scaffold from metadev template
         Keep the startup report concise. If everything is in order, say so in one line.
 
         ## What You Do NOT Do
