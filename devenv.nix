@@ -57,14 +57,6 @@ in
   ];
 
   enterShell = ''
-    # Install metadev skills into project .claude/skills/ (no-clobber: project files win)
-    metadev_skills="${./.}/.claude/skills"
-    if [ -d "$metadev_skills" ] && [ "$(realpath "$metadev_skills")" != "$(realpath "$(pwd)/.claude/skills" 2>/dev/null)" ]; then
-      mkdir -p .claude/skills
-      chmod -R u+w .claude/skills/
-      cp -r --no-preserve=mode "$metadev_skills"/. .claude/skills/
-    fi
-
     # ctx shell integration
     if command -v ctx &>/dev/null; then
       ctx shell --shell bash >/dev/null 2>&1 || true
