@@ -1,1 +1,1 @@
-/nix/store/aj04zbsn19pl0dpssi7m154v9cvbb7rn-claude-agents-rust-architect.md
+/nix/store/9nlckl3kzjhvi73d3h41ld7lfwz3nc0l-claude-agents-rust-architect.md

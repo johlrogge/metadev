@@ -3,12 +3,12 @@
 let
   cargo-polylith-src = builtins.fetchGit {
     url = "https://github.com/johlrogge/cargo-polylith";
-    rev = "fcdddd299fbd459d8bf64cb4f72333bfd1c5bf34"; # tag 0.2.2
+    rev = "b700bec2e0d7b8eb169a760359f1a57e77cb70e3"; # tag 0.2.4
   };
 
   cargo-polylith-pkg = pkgs.rustPlatform.buildRustPackage {
     pname = "cargo-polylith";
-    version = "0.2.2";
+    version = "0.2.4";
     src = cargo-polylith-src;
     cargoLock.lockFile = cargo-polylith-src + "/Cargo.lock";
   };
@@ -111,7 +111,7 @@ in
   claude.code.mcpServers.cargo-polylith = {
     type = "stdio";
     command = "cargo-polylith";
-    args = [ "mcp" "serve" ];
+    args = [ "polylith" "mcp" "serve" ];
   };
 
   claude.code.agents = {

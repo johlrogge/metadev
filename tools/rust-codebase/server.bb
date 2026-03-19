@@ -128,7 +128,7 @@
 
 (defn cargo-test [arguments]
   (let [path   (effective-path arguments)
-        result (run-cmd path "cargo" "test" "2>&1")]
+        result (run-cmd path "cargo" "test")]
     ;; cargo test doesn't support --message-format=json in stable, capture combined output
     (let [combined (str (:out result)
                         (when-not (str/blank? (:err result))
