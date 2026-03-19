@@ -489,7 +489,7 @@ in
     metadev = lib.mkDefault {
       description = "Metadev skill installer and diagnostician. Installs metadev-provided skills into the current project, detects missing skills, and explains what metadev provides.";
       model = "sonnet";
-      proactive = false;
+      proactive = true;
       tools = [ "Read" "Write" "Glob" "Skill" ];
       prompt = ''
         You are the metadev agent. Your job is to install and maintain metadev-provided skills
