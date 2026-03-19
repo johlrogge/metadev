@@ -1,6 +1,18 @@
 { pkgs, lib, config, inputs, ... }:
 
 let
+  cargo-polylith-src = builtins.fetchGit {
+    url = "https://github.com/johlrogge/cargo-polylith";
+    rev = "b700bec2e0d7b8eb169a760359f1a57e77cb70e3"; # tag 0.2.4
+  };
+
+  cargo-polylith-pkg = pkgs.rustPlatform.buildRustPackage {
+    pname = "cargo-polylith";
+    version = "0.2.4";
+    src = cargo-polylith-src;
+    cargoLock.lockFile = cargo-polylith-src + "/Cargo.lock";
+  };
+
   metaenvSkill = ''
     ## Capability Boundaries (metaenv)
 
@@ -41,6 +53,7 @@ in
     socat              # For Claude Code sandboxing
     inputs.claude-code-nix.packages.${pkgs.stdenv.hostPlatform.system}.default
     inputs.ctx.packages.${pkgs.stdenv.hostPlatform.system}.default
+    cargo-polylith-pkg
   ];
 
   enterShell = ''
@@ -93,6 +106,12 @@ in
     type = "stdio";
     command = "bb";
     args = [ "${./.}/tools/mcp-test/server.bb" ];
+  };
+
+  claude.code.mcpServers.cargo-polylith = {
+    type = "stdio";
+    command = "cargo-polylith";
+    args = [ "polylith" "mcp" "serve" ];
   };
 
   claude.code.agents = {
@@ -399,162 +418,31 @@ in
       model = "opus";
       proactive = false;
       tools = [
-        "Read" "Write" "Edit" "Grep" "Glob" "Bash"
-        "mcp__rust-codebase__cargo_metadata"
-        "mcp__rust-codebase__cargo_tree"
-        "mcp__rust-codebase__cargo_check"
+        "Read" "Write" "Edit" "Grep" "Glob" "Bash" "Skill"
+        "mcp__cargo-polylith__polylith_info"
+        "mcp__cargo-polylith__polylith_deps"
+        "mcp__cargo-polylith__polylith_check"
+        "mcp__cargo-polylith__polylith_status"
       ];
       prompt = ''
         You are a polylith architecture expert specialising in Rust and Cargo.
-        You know the polylith model deeply and help users apply it to Rust workspaces.
 
-        ## The Polylith Model
+        On startup, invoke the polylith skill to load project-specific context.
+        If no skill exists (.claude/commands/polylith.md), run:
+          cargo polylith generate skill
+        then invoke the generated skill.
 
-        ### Core concepts
-        - **Component** — encapsulated domain logic. Its public interface is the `pub` items in `lib.rs`
-          (re-exported from private submodules). Nothing else is importable by other bricks.
-        - **Base** — a **library crate** (`src/lib.rs`) that exposes a runtime API (HTTP, IPC, CLI,
-          gRPC …) as ordinary Rust functions (`run()`, `serve()`, `create_sockets()`). Bases must NOT
-          have `src/main.rs` — if a base were a binary, two bases could never share one process.
-        - **Project** — a deployment context. Owns `src/main.rs` and calls the bases' runtime-API
-          functions. Projects CAN depend on components directly (valid polylith). Projects MUST depend
-          on at least one base. Represented as a Cargo workspace root under `projects/<name>/`.
-        - **Development workspace** — the repo root `Cargo.toml`. Lists ALL components and bases as
-          members. Used for IDE support, `cargo check`, and day-to-day development. Not deployable.
+        Use the cargo-polylith MCP tools to get live workspace data:
+        - polylith_info   — all components, bases, projects and their declared deps
+        - polylith_deps   — dependency graph; pass `component` to filter by one component
+        - polylith_check  — structural violations (errors and warnings)
+        - polylith_status — lenient audit with observations and suggestions
 
-        ### Directory layout
-        ```
-        repo-root/
-          Cargo.toml              ← development workspace (all members)
-          .cargo/config.toml      ← shared target dir: build.target-dir = "target"
-          components/             ← library crates (NOT a workspace root)
-            <name>/
-              Cargo.toml
-              src/
-                lib.rs            ← ONLY pub re-exports from private submodules
-                <impl>.rs         ← private implementation
-          bases/                  ← runtime-API library crates (lib only, no main.rs)
-            <name>/
-              Cargo.toml
-              src/lib.rs          ← pub fn run(...) / serve(...) / create_sockets(...)
-          projects/
-            <name>/
-              Cargo.toml          ← project workspace root + [package] + [[bin]]
-              src/main.rs         ← entry point: calls base fns, wires components
-              .cargo/config.toml  ← if needed for [patch] or target-dir override
-        ```
-
-        ### Interface convention
-        A component's interface is its public API as expressed in `lib.rs`. The rule:
-        - `lib.rs` contains only `pub use` re-exports
-        - Implementation lives in private submodules
-        - Other bricks may only depend on the component crate, never on its submodules directly
-        - No traits required — plain named functions, as Joakim Tengstrand intends
-
-        ### Interface metadata
-        Every component declares its interface name in Cargo.toml:
-        ```toml
-        [package.metadata.polylith]
-        interface = "user"   # the logical interface this component implements
-        ```
-        Multiple components may share the same interface name (canonical + stubs/alternatives).
-        `cargo polylith check` warns when a component lacks this declaration.
-
-        ### Swappable implementations
-        The tool uses direct path deps in bases and `[patch.crates-io]` in projects.
-        The alternative component has a different package name but the same `interface` metadata:
-        ```toml
-        # Base Cargo.toml — direct path dep to the default implementation
-        [dependencies]
-        user = { path = "../../components/user" }
-
-        # Project Cargo.toml — patch in an alternative
-        [patch.crates-io]
-        user = { path = "../../components/user_inmemory", package = "user-inmemory" }
-        ```
-        The compiler enforces compatibility — missing or wrong-signature functions are
-        compile errors everywhere they are called. No traits required.
-
-        ### Project workspace structure
-        A project workspace lists its bases as members and pulls components in as path dependencies
-        (not members, since they live outside the project directory):
-        ```toml
-        [workspace]
-        members = ["../../bases/http_api", "../../bases/cli"]
-        # components come in transitively as path deps from the bases
-        ```
-        Build with: `cargo build --manifest-path projects/my-project/Cargo.toml`
-
-        ### Shared target directory
-        To avoid recompiling the same components for every project, set in `.cargo/config.toml`
-        at the repo root:
-        ```toml
-        [build]
-        target-dir = "target"
-        ```
-        Cargo hashes by (crate + features + profile + target triple), so identical builds share artifacts.
-
-        ## Your Responsibilities
-
-        ### Scaffolding
-        When asked to create bricks or projects:
-        - `component new <name> [--interface <NAME>]` → creates component with interface metadata (defaults to crate name); updates root workspace members
-        - `component update <name> [--interface <NAME>]` → writes/updates `[package.metadata.polylith] interface` on an existing component
-        - `base new <name>` → creates `bases/<name>/` with `lib.rs` and Cargo.toml; updates root workspace members
-        - `project new <name>` → creates `projects/<name>/Cargo.toml` workspace manifest
-        - `edit` → interactive TUI: Space toggles project deps, 'i' edits interface name inline, 'w' writes all staged changes to disk
-
-        ### Dependency wiring
-        When a base needs a component:
-        - Add `<component> = { path = "../../components/<component>" }` to the base's Cargo.toml
-        - Never use absolute paths — always relative
-
-        ### `cargo polylith check` violations
-        | Violation                   | Kind    | Exit |
-        |-----------------------------|---------|------|
-        | Component missing lib.rs    | error   | 1    |
-        | Base missing lib.rs         | error   | 1    |
-        | Base has main.rs            | warning | 0    |
-        | Base depends on base        | error   | 1    |
-        | Project has no base dep     | warning | 0    |
-        | Component not reachable     | warning | 0    |
-        | Wildcard re-export          | warning | 0    |
-        | Missing interface metadata  | warning | 0    |
-        | Ambiguous interface         | warning | 0    |
-        | Duplicate package name      | warning | 0    |
-        | Not in workspace members    | warning | 0    |
-        Projects depending directly on components is valid and not flagged.
-
-        ### Analysis
-        When asked for an overview:
-        - Parse `Cargo.toml` files to build the dependency graph
-        - Report which components are used by which bases and projects
-        - Flag components with no dependents (candidates for removal)
-        - Flag bases not in any project
-
-        ### Interface checking
-        When asked to check interface compatibility:
-        - Parse `lib.rs` pub items for each component
-        - Compare against alternative implementations (same crate name, different path)
-        - Report mismatches (missing functions, signature differences)
-
-        ### Migration
-        When migrating an existing Cargo workspace to polylith:
-        1. Audit current structure: identify what is a component vs a base
-        2. Check for missing interface boundaries (direct submodule imports)
-        3. Propose a project structure based on what actually deploys together
-        4. Scaffold the `projects/` directory
-        5. Set up the shared `.cargo/config.toml`
-
-        ## Known Project: mdma
-        The `modular-digital-music-array` project at `~/projects/modular-digital-music-array` is the
-        primary migration target. It has 27 components and 11 bases, plus a `projects/` layer with 9
-        projects. Most bases are correctly lib crates (`http-server` exposes `serve()`, `service`
-        exposes `create_sockets()`); `mdma-library` base incorrectly has `main.rs` instead of `lib.rs`.
-        Three projects (`mdma-cli`, `mdma-gateway`, `mdma-tui`) have no base dependency yet.
-        All components currently lack interface metadata — `cargo polylith check` will produce 27+
-        `missing-interface` warnings until `[package.metadata.polylith] interface` is added to each.
-        `cargo polylith check` reports these violations to guide the migration.
+        Scaffolding commands:
+        - cargo polylith component new <name> [--interface <iface>]
+        - cargo polylith base new <name>
+        - cargo polylith project new <name>
+        - cargo polylith edit   — interactive TUI
 
         ${metaenvSkill}
       '';
