@@ -794,54 +794,15 @@ in
         - Draft the migrated version
         - Write only after user confirms
 
-        ### Agent permissions (.claude/settings.json)
-        Read by: Claude Code on every session — controls which MCP tool calls are auto-approved.
-        If missing or incomplete, agents will prompt the user for approval on every MCP call,
-        which breaks autonomous flow.
+        ### Agent permissions (.claude/settings.local.json)
+        MCP tool permissions are now generated automatically by the metadev devenv module into
+        .claude/settings.local.json (a nix store symlink, regenerated on devenv shell).
 
-        Note: the devenv module auto-generates this file but cannot produce the correct bare-name
-        format for MCP tools (it generates `tool(*)` which Claude Code rejects for MCP tools).
-        Manage MCP permissions here manually.
+        If the file is missing or outdated, run: devenv shell
+        If a project needs additional permissions beyond the metadev set, add them to the
+        project's devenv.nix by overriding files.".claude/settings.local.json".json.
 
-        Safe tools to auto-permit (read-only or idempotent — no destructive side effects):
-        ```json
-        {
-          "permissions": {
-            "allow": [
-              "mcp__git-read__git_status",
-              "mcp__git-read__git_diff",
-              "mcp__git-read__git_log",
-              "mcp__git-read__git_branch",
-              "mcp__git-read__git_show",
-              "mcp__git-flow__gitflow_status",
-              "mcp__git-flow__gitflow_feature_list",
-              "mcp__cargo-polylith__polylith_info",
-              "mcp__cargo-polylith__polylith_deps",
-              "mcp__cargo-polylith__polylith_check",
-              "mcp__cargo-polylith__polylith_status",
-              "mcp__rust-codebase__cargo_check",
-              "mcp__rust-codebase__cargo_clippy",
-              "mcp__rust-codebase__cargo_metadata",
-              "mcp__rust-codebase__cargo_tree",
-              "mcp__rust-codebase__clippy_new_warnings",
-              "mcp__gh-ci__gh_run_list",
-              "mcp__gh-ci__gh_run_view",
-              "mcp__gh-ci__gh_pr_checks",
-              "mcp__just__just_list"
-            ]
-          }
-        }
-        ```
-        Tools that must always require approval (destructive or irreversible):
-        - git_add, git_commit, git_stash, git_cherry_pick — modify the repo
-        - gitflow_release_finish, gitflow_hotfix_finish — merge to master and tag
-        - gh_run_watch — long-running, blocks the session
-
-        When checking permissions:
-        1. Glob for .claude/settings.json
-        2. Read it — check whether the safe tools are in permissions.allow
-        3. If any are missing: offer to add them (merge, do not overwrite the whole file)
-        4. Write only after the user confirms
+        Do NOT offer to write permissions manually — the module handles this.
 
         ### Startup behaviour
         When invoked proactively, run through all checks in order:
@@ -852,8 +813,7 @@ in
            - If missing: offer to scaffold a minimal template
            - If present: read it and report any issues found (outdated references, missing sections)
         5. Check for RELEASING.md — mention if missing, offer to scaffold from metadev template
-        6. Check .claude/settings.json — offer to add safe MCP tool permissions if missing
-        7. Check for outdated conventions (see Migration Assistance above)
+        6. Check for outdated conventions (see Migration Assistance above)
         Keep the startup report concise. If everything is in order, say so in one line.
 
         ## What You Do NOT Do
@@ -999,5 +959,30 @@ in
 
       $ARGUMENTS
     '';
+  };
+
+  files.".claude/settings.local.json".json = {
+    permissions.allow = [
+      "mcp__git-read__git_status"
+      "mcp__git-read__git_diff"
+      "mcp__git-read__git_log"
+      "mcp__git-read__git_branch"
+      "mcp__git-read__git_show"
+      "mcp__git-flow__gitflow_status"
+      "mcp__git-flow__gitflow_feature_list"
+      "mcp__cargo-polylith__polylith_info"
+      "mcp__cargo-polylith__polylith_deps"
+      "mcp__cargo-polylith__polylith_check"
+      "mcp__cargo-polylith__polylith_status"
+      "mcp__rust-codebase__cargo_check"
+      "mcp__rust-codebase__cargo_clippy"
+      "mcp__rust-codebase__cargo_metadata"
+      "mcp__rust-codebase__cargo_tree"
+      "mcp__rust-codebase__clippy_new_warnings"
+      "mcp__gh-ci__gh_run_list"
+      "mcp__gh-ci__gh_run_view"
+      "mcp__gh-ci__gh_pr_checks"
+      "mcp__just__just_list"
+    ];
   };
 }
