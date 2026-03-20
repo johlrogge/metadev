@@ -151,6 +151,23 @@ claude.code.mcpServers.my-tool = {
 };
 ```
 
+## MCP Permissions
+
+`.claude/settings.local.json` is generated automatically by the devenv module on `devenv shell`. Importing projects get the standard MCP permission set with no manual step.
+
+To grant additional permissions beyond the metadev defaults, override the file in your project's `devenv.nix`:
+
+```nix
+files.".claude/settings.local.json".json = {
+  permissions.allow = [
+    # metadev defaults are not inherited here — list everything needed
+    "mcp__my-tool__my_operation"
+  ];
+};
+```
+
+If the file is missing or stale, re-enter the shell (`devenv shell`) to regenerate it.
+
 ## Philosophy
 
 **"Don't ask for permission, ask for a tool."**
