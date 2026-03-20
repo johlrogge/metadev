@@ -26,7 +26,7 @@ New features go through a design-implement-review loop before release.
 2. **devops** — start the feature branch
    > "Start feature <name>"
 
-3. **rust-architect** — design the feature; produce a task breakdown for minions
+3. **architect** — design the feature; produce a task breakdown for minions
    > "Design the implementation for <feature>"
    The architect produces clear, scoped tasks — one per minion.
 
@@ -34,14 +34,14 @@ New features go through a design-implement-review loop before release.
    > Spawn multiple minions simultaneously with different task descriptions.
    Each minion: writes a failing test → implements → runs checks → reports back.
 
-5. **rust-architect** — review all minion output
+5. **architect** — review all minion output
    > "Review the changes from <minion tasks>"
    - If approved: says COMMIT with a suggested message
    - If changes needed: dispatches minions again with specific fix instructions
    - Loop until approved
 
 6. **commit** — commit the approved changes
-   > Invoked by the orchestrator when rust-architect approves
+   > Invoked by the orchestrator when architect approves
 
 7. **devops** — finish the feature branch
    > "Finish feature <name>"
@@ -50,7 +50,7 @@ New features go through a design-implement-review loop before release.
 
 Run these agents in order before cutting a release:
 
-1. **rust-architect** — review all changes since last release
+1. **architect** — review all changes since last release
    > "Review changes since last release"
 
 2. **product-owner** — confirm the release delivers intended value
@@ -80,4 +80,4 @@ Run these agents in order before cutting a release:
 - Always confirm with devops before finishing a release or hotfix
 - Multiple code-minions can run in parallel on different tasks within the same feature
 - The commit agent reads `.claude/skills/conventional-commits/SKILL.md` for format
-- The rust-architect never writes code — it designs and reviews only
+- The architect never writes code — it designs and reviews only
