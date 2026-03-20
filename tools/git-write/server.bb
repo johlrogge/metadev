@@ -58,6 +58,22 @@
     "hotfix start" "hotfix finish"
     "init"})
 
+(defn git-cherry-pick [path commits no-commit]
+  (when (str/blank? commits)
+    (throw (ex-info "commits parameter is required" {})))
+  (let [commit-list (str/split (str/trim commits) #"\s+")
+        args        (cond-> ["cherry-pick"]
+                      no-commit (conj "-n")
+                      true      (into commit-list))
+        result      (apply run-git path args)]
+    (if (:ok result)
+      (format-result result)
+      ;; On conflict, include git status so the caller can see what needs resolving
+      (let [status (run-git path "status" "--short")]
+        (str "Error: " (:output result)
+             (when-not (str/blank? (:output status))
+               (str "\n\nConflicting files:\n" (:output status))))))))
+
 (defn git-flow [path action name]
   (when (str/blank? action)
     (throw (ex-info "action is required" {})))
@@ -87,6 +103,9 @@
 
       "git_checkout"
       (git-checkout (:path arguments) (:branch arguments))
+
+      "git_cherry_pick"
+      (git-cherry-pick (:path arguments) (:commits arguments) (:no_commit arguments))
 
       "git_flow"
       (git-flow (:path arguments) (:action arguments) (:name arguments))
@@ -121,6 +140,14 @@
                   :properties {"path"   {:type "string" :description "Absolute path to the git repository root"}
                                "branch" {:type "string" :description "Branch name to checkout. Must already exist."}}
                   :required ["path" "branch"]}}
+
+   {:name "git_cherry_pick"
+    :description "Cherry-pick one or more commits onto the current branch."
+    :inputSchema {:type "object"
+                  :properties {"path"      {:type "string" :description "Absolute path to the git repository root"}
+                               "commits"   {:type "string" :description "Space-separated list of commit hashes or refs to cherry-pick (e.g. \"abc1234\" or \"abc1234 def5678\")"}
+                               "no_commit" {:type "boolean" :description "If true, apply changes but do not create a commit (-n flag), leaving them staged. Default: false."}}
+                  :required ["path" "commits"]}}
 
    {:name "git_flow"
     :description "Run a git flow command. Supports feature/release/hotfix start and finish, feature list, and init."
