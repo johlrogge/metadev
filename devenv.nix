@@ -200,6 +200,7 @@ in
       description = "Documentation updater. Maintains README files across the workspace as part of the release process.";
       model = "sonnet";
       proactive = false;
+      permissionMode = "acceptEdits";
       tools = [ "Read" "Write" "Edit" "Grep" "Glob" "Skill" ];
       prompt = ''
         You update README.md files as part of the release process. You do NOT write code, deploy, or commit.
@@ -344,6 +345,7 @@ in
       description = "Deployment agent. Builds, deploys, and operates project infrastructure on target environments. Project-specific — loads procedures from .claude/skills/devops/SKILL.md.";
       model = "sonnet";
       proactive = false;
+      permissionMode = "acceptEdits";
       tools = [
         "Read" "Write" "Edit" "Bash" "Grep" "Glob" "Skill"
         "mcp__just__just_run"
@@ -493,6 +495,7 @@ in
       description = "Polylith architecture expert. Helps design, scaffold, analyse, and migrate Rust/Cargo projects to the polylith model.";
       model = "opus";
       proactive = false;
+      permissionMode = "acceptEdits";
       tools = [
         "Read" "Write" "Edit" "Grep" "Glob" "Bash" "Skill"
         "mcp__cargo-polylith__polylith_info"
@@ -566,6 +569,7 @@ in
       description = "Implementation specialist. Writes code, implements planned features, writes tests. Follows the architect's design. Multiple minions can run in parallel on different tasks.";
       model = "sonnet";
       proactive = false;
+      permissionMode = "acceptEdits";
       tools = [
         "Read" "Write" "Edit" "Grep" "Glob" "Skill"
         "mcp__rust-codebase__cargo_check"
@@ -622,9 +626,10 @@ in
     };
 
     metadev = lib.mkDefault {
-      description = "Metadev project guide. Installs skills, checks workspace docs, configures agent permissions in .claude/settings.json so agents can work autonomously without constant approval prompts.";
+      description = "Metadev project guide. Installs skills, checks workspace docs, reviews CLAUDE.md for quality, and detects outdated metadev conventions.";
       model = "sonnet";
       proactive = true;
+      permissionMode = "acceptEdits";
       tools = [ "Read" "Write" "Glob" "Skill" ];
       prompt = ''
         You are the metadev agent. Your job is to onboard and maintain projects in the metadev
@@ -715,8 +720,25 @@ in
         ### CLAUDE.md
         Read by: Claude on every session start.
         Contains: project context, conventions, agent guidance.
-        If missing: offer to scaffold a minimal template with project name and a note
+
+        **If missing:** offer to scaffold a minimal template with project name and a note
         to fill in conventions. Do not write substantive content — that belongs to the team.
+
+        **If present:** read it and review for quality. Check for:
+        1. **Outdated agent references** — e.g., "rust-architect" instead of "architect".
+           Offer to fix these in place (show the diff, write only after confirmation).
+        2. **Missing agent guidance** — does it describe which agents exist and what they do?
+           Suggest adding a brief agents section if absent.
+        3. **Missing conventions** — build commands, test commands, code style rules?
+           Flag if there are no conventions documented.
+        4. **Missing architecture overview** — where is the code, how is it structured?
+           Suggest adding if the project has non-obvious structure.
+        5. **Stale content** — references to files, commands, or patterns that no longer exist.
+           Flag anything that looks inconsistent with what you can observe via Glob/Read.
+
+        Offer suggestions as a concrete numbered list. Do NOT rewrite CLAUDE.md wholesale —
+        suggest targeted edits. If there are clear outdated references, offer to fix them in
+        place; show the proposed change and wait for confirmation before writing.
 
         ### RELEASING.md
         Read by: devops agent, human contributors.
@@ -758,7 +780,9 @@ in
         1. Install any missing metadev skills (silently if all present, report if anything was installed)
         2. Check for VISION.md — mention if missing, offer brainstorm agent
         3. Check for ROADMAP.md — mention if missing, offer to scaffold
-        4. Check for CLAUDE.md — mention if missing, offer to scaffold
+        4. Check for CLAUDE.md:
+           - If missing: offer to scaffold a minimal template
+           - If present: read it and report any issues found (outdated references, missing sections)
         5. Check for RELEASING.md — mention if missing, offer to scaffold from metadev template
         6. Check for outdated conventions (see Migration Assistance above)
         Keep the startup report concise. If everything is in order, say so in one line.
@@ -777,6 +801,7 @@ in
       description = "Creates MCP tool servers (Babashka/Clojure) that give other agents structured, permission-free access to specific capabilities.";
       model = "sonnet";
       proactive = false;
+      permissionMode = "acceptEdits";
       tools = [ "Read" "Write" "Edit" "Bash" "Grep" "Glob" ];
       prompt = ''
         You create lightweight MCP (Model Context Protocol) tool servers using Babashka (bb).
