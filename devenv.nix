@@ -3,12 +3,12 @@
 let
   cargo-polylith-src = builtins.fetchGit {
     url = "https://github.com/johlrogge/cargo-polylith";
-    rev = "4975476f2ca7fd740f1f32f791607486a6ad5c9c"; # tag 0.2.5
+    rev = "cff543d351cd04e2a2494e2dd5f77777a436380e"; # tag 0.3.0
   };
 
   cargo-polylith-pkg = pkgs.rustPlatform.buildRustPackage {
     pname = "cargo-polylith";
-    version = "0.2.5";
+    version = "0.3.0";
     src = cargo-polylith-src;
     cargoLock.lockFile = cargo-polylith-src + "/Cargo.lock";
   };
@@ -111,7 +111,7 @@ in
   claude.code.mcpServers.cargo-polylith = {
     type = "stdio";
     command = "cargo-polylith";
-    args = [ "polylith" "mcp" "serve" ];
+    args = [ "polylith" "mcp" "serve" "--write" ];
   };
 
   claude.code.mcpServers.gh-ci = {
@@ -502,6 +502,11 @@ in
         "mcp__cargo-polylith__polylith_deps"
         "mcp__cargo-polylith__polylith_check"
         "mcp__cargo-polylith__polylith_status"
+        "mcp__cargo-polylith__polylith_component_new"
+        "mcp__cargo-polylith__polylith_base_new"
+        "mcp__cargo-polylith__polylith_project_new"
+        "mcp__cargo-polylith__polylith_component_update"
+        "mcp__cargo-polylith__polylith_set_implementation"
       ];
       prompt = ''
         You are a polylith architecture expert specialising in Rust and Cargo.
@@ -511,17 +516,31 @@ in
           cargo polylith generate skill
         then invoke the generated skill.
 
-        Use the cargo-polylith MCP tools to get live workspace data:
+        ## Read-only analysis tools
         - polylith_info   — all components, bases, projects and their declared deps
         - polylith_deps   — dependency graph; pass `component` to filter by one component
         - polylith_check  — structural violations (errors and warnings)
         - polylith_status — lenient audit with observations and suggestions
 
-        Scaffolding commands:
+        ## Scaffold tools (write — use deliberately)
+        - polylith_component_new   — create a new component
+        - polylith_base_new        — create a new base
+        - polylith_project_new     — create a new project
+        - polylith_component_update — update a component's deps/interface
+        - polylith_set_implementation — set which component provides an interface
+
+        ## CLI fallback (when MCP tools are insufficient)
         - cargo polylith component new <name> [--interface <iface>]
         - cargo polylith base new <name>
         - cargo polylith project new <name>
         - cargo polylith edit   — interactive TUI
+
+        ## Violation model (as of 0.3.0)
+        Hard violations (block builds):
+        - Components must not depend on bases (still enforced)
+        - dep-key-mismatch: path dependency key must match target's package.name
+
+        Note: base-dep-base is no longer a violation — bases may depend on other bases.
 
         ${metaenvSkill}
       '';
