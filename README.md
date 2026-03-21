@@ -154,10 +154,12 @@ MCP tool servers live in `tools/` and are written in Babashka (bb). Register the
 ```nix
 claude.code.mcpServers.my-tool = {
   type = "stdio";
-  command = "bb";
+  command = "${pkgs.babashka}/bin/bb";
   args = [ "./tools/my-tool/server.bb" ];
 };
 ```
+
+Using the absolute nix store path for `command` means MCP servers connect regardless of whether Claude is started inside or outside `devenv shell`.
 
 ## MCP Permissions
 
