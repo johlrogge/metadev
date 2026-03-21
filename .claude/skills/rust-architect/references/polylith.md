@@ -101,34 +101,47 @@ repo-root/
 
 ## `cargo polylith check` Violations
 
-| Violation                | Kind    | Exit |
-|--------------------------|---------|------|
-| Component missing lib.rs    | error   | 1    |
-| Base missing lib.rs         | error   | 1    |
-| Base has main.rs            | warning | 0    |
-| Base depends on base        | error   | 1    |
-| Project has no base dep     | warning | 0    |
-| Component not reachable     | warning | 0    |
-| Wildcard re-export          | warning | 0    |
-| Missing interface metadata  | warning | 0    |
-| Ambiguous interface         | warning | 0    |
-| Duplicate package name      | warning | 0    |
-| Not in workspace members    | warning | 0    |
+**Hard errors** (non-zero exit, must fix):
 
-Projects depending directly on components is valid and not flagged.
+| Violation | Meaning | Fix |
+|-----------|---------|-----|
+| `dep-key-mismatch` | Path dep key doesn't match `package.name` and no `package` alias | Add `package = "<real-crate-name>"` to the dep entry |
+| `profile_impl_path_not_found` | Profile entry references a component path that doesn't exist | Correct path in `.polylith/profiles.toml` or create the component |
+| `profile_impl_not_a_component` | Profile entry points to a path without `[package.metadata.polylith]` | Add metadata or point profile at a proper component |
+
+**Warnings** (exit 0, flag for attention):
+
+| Violation | Meaning | Fix |
+|-----------|---------|-----|
+| `hardwired_dep` | Component/base uses direct `path = "..."` instead of `workspace = true` — bypasses swap | Move dep to `[workspace.dependencies]`, reference as `{ workspace = true }` |
+| `WildcardReExport` | `pub use foo::*` in lib.rs | Use named re-exports |
+| `OrphanComponent` | Component not used by any project | Wire it or remove it |
+| `ProjectFeatureDrift` | Project dep has fewer features than root workspace dep | Add missing features |
+| `ProjectVersionDrift` | Project dep version differs from workspace | Align versions |
+| `MissingInterface` | Component missing `[package.metadata.polylith] interface` | Add metadata |
+| `AmbiguousInterface`, `DuplicateName`, `ProjectMissingBase`, `NotInRootWorkspace`, `BaseHasMainRs` | Structural issues | Fix per violation name |
+
+Notes:
+- Projects depending directly on components is valid and not flagged.
+- Bases depending on other bases is valid and not flagged.
 
 ## Swappable Implementations
 
-Alternative implementations of the same component share the same Cargo package name:
+Components share an interface name (via `[package.metadata.polylith] interface`) but can have different package names. Projects select which implementation is active by declaring a path dependency aliased to the interface name:
 
 ```toml
-# components/user_inmemory/Cargo.toml
-[package]
-name = "user"             # same name as components/user/
-version = "0.1.0"
+# projects/prod/Cargo.toml — use the real implementation
+[dependencies]
+user = { path = "../../components/user" }
+# package omitted: the crate is already named "user"
+
+# projects/bdd/Cargo.toml — use the stub
+[dependencies]
+user = { path = "../../components/user_stub", package = "user-stub" }
+# package required: the stub crate is named "user-stub", not "user"
 ```
 
-The compiler enforces compatibility — if a function is missing or has the wrong signature, it is a compile error everywhere that function is called. This is Rust's type system doing the interface checking, with no traits involved.
+All code calls `use user::UserService;` identically in both projects. The compiler enforces that both components expose the same public API — mismatched functions are compile errors. No traits needed.
 
 ### How Projects Select Implementations
 
@@ -146,7 +159,7 @@ user = { workspace = true }   # resolves to whatever the project workspace says
 members = ["../../bases/http_api"]
 
 [workspace.dependencies]
-user = { path = "../../components/user" }           # Postgres implementation
+user = { path = "../../components/user" }           # real implementation
 ```
 
 ```toml
@@ -155,13 +168,40 @@ user = { path = "../../components/user" }           # Postgres implementation
 members = ["../../bases/http_api"]
 
 [workspace.dependencies]
-user = { path = "../../components/user_inmemory" }  # in-memory implementation
+user = { path = "../../components/user-stub", package = "user-stub" }  # stub
 ```
 
 The `cargo-polylith` tool generates and manages these project workspace files. Build a specific project with:
 ```bash
 cargo build --manifest-path projects/production/Cargo.toml
 ```
+
+## Profiles
+
+A **profile** is a named set of interface-to-implementation mappings stored in `.polylith/profiles.toml`. Profiles let you switch the full set of component implementations for a project with one command, rather than editing `Cargo.toml` files manually.
+
+```toml
+# .polylith/profiles.toml
+[profiles.prod]
+user = "components/user"
+storage = "components/storage-postgres"
+
+[profiles.bdd]
+user = "components/user-stub"
+storage = "components/storage-memory"
+```
+
+Profile commands:
+
+```bash
+cargo polylith profile list [--json]                      # list defined profiles
+cargo polylith profile build <name> [--no-build]          # activate profile (rewrites Cargo.tomls); --no-build patches without building
+cargo polylith profile add <interface> \
+  --impl <path> --profile <name>                          # add/update one mapping
+cargo polylith check --profile <name>                     # validate as if profile were active
+```
+
+`profile build` resolves each mapping and rewrites `[dependencies]` in the relevant `Cargo.toml` files. `check --profile` adds profile-specific violations (`profile_impl_path_not_found`, `profile_impl_not_a_component`) on top of standard checks.
 
 ## Project Workspace Structure
 
