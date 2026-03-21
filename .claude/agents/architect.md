@@ -1,0 +1,1 @@
+/nix/store/31wl46d6i59js6fw11mhp24anm2m72cn-claude-agents-architect.md
