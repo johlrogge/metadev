@@ -63,10 +63,6 @@ in
       [ -f "$HOME/.config/ctx/ctx.bash" ] && source "$HOME/.config/ctx/ctx.bash"
     fi
 
-    # Claude Code won't follow symlinks for .mcp.json — materialize it as a real file
-    if [ -L ".mcp.json" ]; then
-      cp --remove-destination "$(readlink -f .mcp.json)" ".mcp.json"
-    fi
   '';
 
   claude.code.enable = true;
