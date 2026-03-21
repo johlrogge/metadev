@@ -23,9 +23,17 @@ On shell entry you'll see available commands and a list of your projects.
 
 | Agent | Model | Purpose |
 |-------|-------|---------|
+| architect | opus | Software architect — reviews code, advises on design, loads language skills on demand. Read-only. |
 | brainstorm | opus | Thinking partner — draws ideas out through questions, reflection, and structured techniques |
+| code-minion | sonnet | Implementation specialist — writes code, implements planned features, writes tests |
 | commit | haiku | Git commits with conventional commit format, hook-aware |
+| devops | sonnet | Deployment agent — builds, deploys, and operates project infrastructure |
 | documenter | sonnet | README maintenance, polymorphic via project skills |
+| helix | opus | Helix keymap expert — advises on TUI keymap design using Helix/Kakoune conventions |
+| metadev | sonnet | Metadev project guide — installs skills, checks workspace docs, detects outdated conventions |
+| polylith | opus | Polylith architecture expert — design, scaffold, analyse, and migrate Rust/Cargo projects |
+| product-owner | opus | Product ownership and strategic guidance — scope, prioritise, and deliver continuous value |
+| release-manager | sonnet | Git flow lifecycle — features, releases, hotfixes. Never pushes. |
 | toolsmith | sonnet | Creates Babashka MCP tool servers for permission-free agent access |
 
 ## Importing into a Project

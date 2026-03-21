@@ -3,12 +3,12 @@
 let
   cargo-polylith-src = builtins.fetchGit {
     url = "https://github.com/johlrogge/cargo-polylith";
-    rev = "cff543d351cd04e2a2494e2dd5f77777a436380e"; # tag 0.3.0
+    rev = "6c960879640ea8f98879428256b7182b3eebed5c"; # tag 0.6.0
   };
 
   cargo-polylith-pkg = pkgs.rustPlatform.buildRustPackage {
     pname = "cargo-polylith";
-    version = "0.3.0";
+    version = "0.6.0";
     src = cargo-polylith-src;
     cargoLock.lockFile = cargo-polylith-src + "/Cargo.lock";
   };
@@ -535,12 +535,23 @@ in
         - cargo polylith project new <name>
         - cargo polylith edit   — interactive TUI
 
-        ## Violation model (as of 0.3.0)
-        Hard violations (block builds):
-        - Components must not depend on bases (still enforced)
-        - dep-key-mismatch: path dependency key must match target's package.name
+        ## Violation model (as of 0.6.0)
+        The generated skill (.claude/commands/polylith.md) has the full, authoritative list.
+        Summary:
 
-        Note: base-dep-base is no longer a violation — bases may depend on other bases.
+        Hard errors (non-zero exit, must fix):
+        - dep-key-mismatch: path dep key doesn't match target's package.name and no `package` alias provided
+        - profile_impl_path_not_found: profile entry points to a path that doesn't exist
+        - profile_impl_not_a_component: profile entry points to a path that isn't a polylith component
+
+        Warnings (exit 0, flag for attention):
+        - hardwired_dep: component/base uses direct path dep instead of `workspace = true` — bypasses swap
+        - WildcardReExport: `pub use foo::*` in lib.rs; prefer named re-exports
+        - OrphanComponent: component not used by any project
+        - ProjectFeatureDrift / ProjectVersionDrift: project dep diverges from root workspace
+        - MissingInterface, AmbiguousInterface, DuplicateName, ProjectMissingBase, NotInRootWorkspace, BaseHasMainRs
+
+        Note: bases may depend on other bases — this is NOT a violation.
 
         ${metaenvSkill}
       '';

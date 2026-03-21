@@ -1,1 +1,1 @@
-/nix/store/052qh1ixvzv1r38pyanjvigh876ba8d2-claude-agents-documenter.md
+/nix/store/hcm22hn9h2n7lbg17b8lz88mybj8rvxs-claude-agents-documenter.md
