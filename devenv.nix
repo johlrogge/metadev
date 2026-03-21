@@ -996,5 +996,17 @@ in
       "mcp__gh-ci__gh_pr_checks"
       "mcp__just__just_list"
     ];
+    enableAllProjectMcpServers = true;
+    enabledMcpjsonServers = [
+      "cargo-polylith"
+      "gh-ci"
+      "git-flow"
+      "git-flow-release"
+      "git-read"
+      "git-write"
+      "just"
+      "mcp-test"
+      "rust-codebase"
+    ];
   };
 }
