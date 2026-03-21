@@ -69,55 +69,55 @@ in
 
   claude.code.mcpServers.git-read = {
     type = "stdio";
-    command = "${pkgs.babashka}/bin/bb";
+    command = "bb";
     args = [ "${./.}/tools/git-read/server.bb" ];
   };
 
   claude.code.mcpServers.git-write = {
     type = "stdio";
-    command = "${pkgs.babashka}/bin/bb";
+    command = "bb";
     args = [ "${./.}/tools/git-write/server.bb" ];
   };
 
   claude.code.mcpServers.just = {
     type = "stdio";
-    command = "${pkgs.babashka}/bin/bb";
+    command = "bb";
     args = [ "${./.}/tools/just/server.bb" ];
   };
 
   claude.code.mcpServers.git-flow = {
     type = "stdio";
-    command = "${pkgs.babashka}/bin/bb";
+    command = "bb";
     args = [ "${./.}/tools/git-flow/server.bb" ];
   };
 
   claude.code.mcpServers.git-flow-release = {
     type = "stdio";
-    command = "${pkgs.babashka}/bin/bb";
+    command = "bb";
     args = [ "${./.}/tools/git-flow-release/server.bb" ];
   };
 
   claude.code.mcpServers.rust-codebase = {
     type = "stdio";
-    command = "${pkgs.babashka}/bin/bb";
+    command = "bb";
     args = [ "${./.}/tools/rust-codebase/server.bb" ];
   };
 
   claude.code.mcpServers.mcp-test = {
     type = "stdio";
-    command = "${pkgs.babashka}/bin/bb";
+    command = "bb";
     args = [ "${./.}/tools/mcp-test/server.bb" ];
   };
 
   claude.code.mcpServers.cargo-polylith = {
     type = "stdio";
-    command = "${cargo-polylith-pkg}/bin/cargo-polylith";
+    command = "cargo-polylith";
     args = [ "polylith" "mcp" "serve" "--write" ];
   };
 
   claude.code.mcpServers.gh-ci = {
     type = "stdio";
-    command = "${pkgs.babashka}/bin/bb";
+    command = "bb";
     args = [ "${./.}/tools/gh-ci/server.bb" ];
   };
 
