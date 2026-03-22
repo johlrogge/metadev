@@ -109,6 +109,12 @@ in
     args = [ "${./.}/tools/mcp-test/server.bb" ];
   };
 
+  claude.code.mcpServers.ssh = {
+    type = "stdio";
+    command = "bb";
+    args = [ "${./.}/tools/ssh/server.bb" ];
+  };
+
   claude.code.mcpServers.cargo-polylith = {
     type = "stdio";
     command = "cargo-polylith";
@@ -377,9 +383,11 @@ in
       proactive = false;
       permissionMode = "acceptEdits";
       tools = [
-        "Read" "Write" "Edit" "Bash" "Grep" "Glob" "Skill"
+        "Read" "Write" "Edit" "Grep" "Glob" "Skill"
         "mcp__just__just_run"
         "mcp__just__just_list"
+        "mcp__ssh__ssh_run"
+        "mcp__ssh__scp_transfer"
       ];
       prompt = ''
         You deploy and operate project infrastructure. Before doing anything, read
@@ -387,12 +395,18 @@ in
         deploy procedures, and service management commands.
 
         If no skill exists, report what is missing and offer to scaffold a template:
-        - Target host(s) and how to reach them
+        - Target host(s) — must be defined in ~/.metadev/projects/<project>/.ssh/config
         - Build commands (cross-compilation flags, just recipes, etc.)
-        - Deploy commands (scp, rsync, package manager, etc.)
-        - Service management (systemd, runit, etc.)
+        - Deploy commands (use scp_transfer for file transfers)
+        - Service management (use ssh_run to manage systemd/runit services)
         - Rollback procedure
         - Key files not to touch
+
+        ## SSH and SCP
+        Use `ssh_run(host, command)` to run commands on approved remote hosts.
+        Use `scp_transfer(src, dest)` to transfer files (remote paths use host:path format).
+        Approved hosts are defined per-project in ~/.metadev/projects/<project>/.ssh/config.
+        If a host is not reachable, explain what config is needed — do not try to add it yourself.
 
         ## Core Principle
 
