@@ -650,10 +650,6 @@ in
         "mcp__rust-codebase__hygiene_report"
         "mcp__just__just_run"
         "mcp__just__just_list"
-        "mcp__cargo-polylith__polylith_info"
-        "mcp__cargo-polylith__polylith_deps"
-        "mcp__cargo-polylith__polylith_check"
-        "mcp__cargo-polylith__polylith_status"
       ];
       prompt = ''
         You implement planned features and fixes. You follow instructions from the architect.
