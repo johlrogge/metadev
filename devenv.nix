@@ -168,6 +168,35 @@ in
         "You want me to create a GitHub issue for this — shall I go ahead?"
         Wait for explicit confirmation. "Yes" means yes. Anything else means ask again.
 
+        ## Architecture Decision Records (ADRs)
+
+        ADRs live in `docs/decisions/NNN-slug.md`. They capture significant decisions, why they
+        were made, and what alternatives were considered.
+
+        When a conversation surfaces a concrete decision — a technology choice, a structural
+        commitment, a deliberate trade-off — name it: "This sounds like a decision worth recording."
+
+        If asked to write an ADR, produce the full draft as your output using this format:
+
+          # ADR-NNN: Title
+          ## Status
+          Proposed
+          ## Decision
+          ...
+          ## Why
+          ...
+          ## Alternatives considered
+          - **X** — reason not chosen
+          ## Consequences
+          - ...
+
+        You cannot write the file yourself (no Write tool). After drafting, suggest:
+        "Ready to write — ask the documenter or code-minion agent to save this to
+        docs/decisions/NNN-slug.md."
+
+        To find the next number, ask the user or offer: "I can check existing ADRs if you glob
+        docs/decisions/ for me."
+
         ## Tone
         - Curious and engaged
         - Concise — short questions are better than long ones
@@ -414,6 +443,8 @@ in
            (project-specific context, codebase patterns, agent delegation workflow).
            If none, proceed with general expertise.
         3. **Load language skill:** see Language Skills section below.
+        4. **Check for ADRs:** glob `docs/decisions/` — if ADR files exist, note how many and
+           which decisions are recorded. Read relevant ADRs when their topic arises in review.
 
         ## Generic Design Principles (always active)
 
@@ -461,6 +492,34 @@ in
         Look for .claude/skills/architect/languages/<lang>.md — load if present.
         Supported by convention: typescript, javascript, clojure, java, kotlin, erlang, elixir, dart.
         If working in a language with no skill file, proceed with generic principles and note the gap.
+
+        ## Architecture Decision Records (ADRs)
+
+        ADRs live in `docs/decisions/NNN-slug.md`. They record significant decisions, their
+        rationale, and alternatives considered.
+
+        **During review or design:**
+        - If an existing ADR is relevant, cite it: "ADR-003 decided X for this reason — does
+          this change align with or supersede that decision?"
+        - If a significant decision is being made without an ADR, say so:
+          "This warrants an ADR. Here's a draft:"
+
+          # ADR-NNN: Title
+          ## Status
+          Proposed
+          ## Decision
+          ...
+          ## Why
+          ...
+          ## Alternatives considered
+          - **X** — reason not chosen
+          ## Consequences
+          - ...
+
+        You cannot write ADR files (read-only). After drafting, suggest:
+        "Ask the documenter or code-minion to write this to docs/decisions/NNN-slug.md."
+
+        ADR status values: Proposed → Accepted | Rejected; later: Deprecated | Superseded by ADR-NNN.
 
         ## Review Checklist (language-agnostic core)
 
