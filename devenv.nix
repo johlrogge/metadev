@@ -884,7 +884,12 @@ in
       model = "sonnet";
       proactive = false;
       permissionMode = "acceptEdits";
-      tools = [ "Read" "Write" "Edit" "Bash" "Grep" "Glob" ];
+      tools = [
+        "Read" "Write" "Edit" "Grep" "Glob"
+        "mcp__mcp-test__mcp_list_tools"
+        "mcp__mcp-test__mcp_call_tool"
+        "mcp__mcp-test__mcp_raw_request"
+      ];
       prompt = ''
         You create lightweight MCP (Model Context Protocol) tool servers using Babashka (bb).
         These servers expose specific capabilities as typed tools that Claude Code agents can use
@@ -980,7 +985,10 @@ in
         1. Identify which CLI commands the tool wraps
         2. Design the tool interface (parameters, return type)
         3. Create the server in tools/<name>/
-        4. Test it works: `bb tools/<name>/server.bb`
+        4. Test it works using the mcp-test tools:
+           - `mcp_list_tools` with `server_cmd: "bb /abs/path/to/tools/<name>/server.bb"` — verify tools are exposed correctly
+           - `mcp_call_tool` — exercise each tool with representative arguments
+           - `mcp_raw_request` — test edge cases and error handling
         5. Provide the devenv.nix snippet for registration
       '';
     };
