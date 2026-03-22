@@ -557,7 +557,7 @@ in
       proactive = false;
       permissionMode = "acceptEdits";
       tools = [
-        "Read" "Write" "Edit" "Grep" "Glob" "Bash" "Skill"
+        "Read" "Write" "Edit" "Grep" "Glob" "Skill"
         "mcp__cargo-polylith__polylith_info"
         "mcp__cargo-polylith__polylith_deps"
         "mcp__cargo-polylith__polylith_check"
@@ -567,6 +567,11 @@ in
         "mcp__cargo-polylith__polylith_project_new"
         "mcp__cargo-polylith__polylith_component_update"
         "mcp__cargo-polylith__polylith_set_implementation"
+        "mcp__rust-codebase__cargo_check"
+        "mcp__rust-codebase__cargo_test"
+        "mcp__rust-codebase__cargo_clippy"
+        "mcp__rust-codebase__cargo_metadata"
+        "mcp__rust-codebase__cargo_tree"
       ];
       prompt = ''
         You are a polylith architecture expert specialising in Rust and Cargo.
