@@ -1,1 +1,1 @@
-/nix/store/bnmwdddi0xfycq82ir301r7dj5b3x0h6-claude-agents-helix.md
+/nix/store/l8lw8pbz530dcawyxlwwdmrsvlqw24q3-claude-agents-helix.md

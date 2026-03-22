@@ -3,12 +3,12 @@
 let
   cargo-polylith-src = builtins.fetchGit {
     url = "https://github.com/johlrogge/cargo-polylith";
-    rev = "6c960879640ea8f98879428256b7182b3eebed5c"; # tag 0.6.0
+    rev = "b47ba5ac784f8541dfb17fa77e8b43350e962365"; # tag 0.7.1
   };
 
   cargo-polylith-pkg = pkgs.rustPlatform.buildRustPackage {
     pname = "cargo-polylith";
-    version = "0.6.0";
+    version = "0.7.1";
     src = cargo-polylith-src;
     cargoLock.lockFile = cargo-polylith-src + "/Cargo.lock";
   };
@@ -125,6 +125,12 @@ in
     type = "stdio";
     command = "bb";
     args = [ "${./.}/tools/gh-ci/server.bb" ];
+  };
+
+  claude.code.mcpServers.devenv = {
+    type = "stdio";
+    command = "devenv";
+    args = [ "mcp" ];
   };
 
   claude.code.agents = {
@@ -443,6 +449,7 @@ in
         "mcp__cargo-polylith__polylith_deps"
         "mcp__cargo-polylith__polylith_check"
         "mcp__cargo-polylith__polylith_status"
+        "mcp__cargo-polylith__polylith_profile_list"
       ];
       prompt = ''
         You are the Architect. You review code and advise on design across any language.
@@ -575,11 +582,15 @@ in
         "mcp__cargo-polylith__polylith_deps"
         "mcp__cargo-polylith__polylith_check"
         "mcp__cargo-polylith__polylith_status"
+        "mcp__cargo-polylith__polylith_profile_list"
         "mcp__cargo-polylith__polylith_component_new"
         "mcp__cargo-polylith__polylith_base_new"
         "mcp__cargo-polylith__polylith_project_new"
         "mcp__cargo-polylith__polylith_component_update"
         "mcp__cargo-polylith__polylith_set_implementation"
+        "mcp__cargo-polylith__polylith_profile_new"
+        "mcp__cargo-polylith__polylith_profile_add"
+        "mcp__cargo-polylith__polylith_base_update"
       ];
       prompt = ''
         You are a polylith architecture analyst for Rust/Cargo workspaces.
@@ -597,17 +608,21 @@ in
         Do NOT attempt fixes yourself. Tell the user: "ask the architect or code-minion to fix this."
 
         ## Read-only analysis tools
-        - polylith_info   — all components, bases, projects and their declared deps
-        - polylith_deps   — dependency graph; pass `component` to filter by one component
-        - polylith_check  — structural violations (errors and warnings)
-        - polylith_status — lenient audit with observations and suggestions
+        - polylith_info         — all components, bases, projects and their declared deps
+        - polylith_deps         — dependency graph; pass `component` to filter by one component
+        - polylith_check        — structural violations (errors and warnings)
+        - polylith_status       — lenient audit with observations and suggestions
+        - polylith_profile_list — list defined profiles
 
         ## Scaffold tools (use only when explicitly asked to create new polylith structure)
         - polylith_component_new      — create a new component
         - polylith_base_new           — create a new base
         - polylith_project_new        — create a new project
         - polylith_component_update   — update a component's deps/interface
-        - polylith_set_implementation — set which component provides an interface
+        - polylith_set_implementation — set which component provides an interface in a project
+        - polylith_base_update        — toggle test-base metadata on an existing base
+        - polylith_profile_new        — create a new empty profile
+        - polylith_profile_add        — add or update one interface→implementation mapping in a profile
 
         ${metaenvSkill}
       '';
@@ -817,6 +832,18 @@ in
            Suggest adding if the project has non-obvious structure.
         5. **Stale content** — references to files, commands, or patterns that no longer exist.
            Flag anything that looks inconsistent with what you can observe via Glob/Read.
+        6. **Missing devenv immutability instructions** — does CLAUDE.md contain an
+           "## Environment" section warning agents not to use imperative package managers?
+           If missing, offer to add the following block (show it, write only after confirmation):
+           ```markdown
+           ## Environment
+
+           This project runs in an immutable Nix environment managed by devenv.
+           **Do NOT** run `pip install`, `npm install -g`, `cargo install`, `brew install`,
+           `apt-get install`, or any other imperative package manager.
+           If a tool or package is missing, add it to `devenv.nix` and re-enter the shell.
+           All tools, packages, hooks, and services are declared in `devenv.nix`.
+           ```
 
         Offer suggestions as a concrete numbered list. Do NOT rewrite CLAUDE.md wholesale —
         suggest targeted edits. If there are clear outdated references, offer to fix them in
@@ -884,6 +911,97 @@ in
         - Do not run shell commands (Bash is not in your tools)
         - Do not install skills outside .claude/skills/
         - Do not write VISION.md — creative content must come from the user via brainstorm
+
+        ${metaenvSkill}
+      '';
+    };
+
+    devenv = lib.mkDefault {
+      description = "devenv environment guardian. Audits projects for compliance with the devenv-as-single-source-of-truth principle. Read-only — advises but never modifies files.";
+      model = "sonnet";
+      proactive = false;
+      tools = [
+        "Read" "Grep" "Glob" "Skill"
+        "mcp__devenv__search_packages"
+        "mcp__devenv__search_options"
+      ];
+      prompt = ''
+        You are the devenv guardian. You audit projects for compliance with the
+        "devenv as single source of truth" principle. You are READ-ONLY — you NEVER
+        modify files. All fixes are delegated to other agents.
+
+        ## On Startup
+
+        1. Read devenv.nix, devenv.yaml, and CLAUDE.md (if they exist) to understand
+           the project's devenv setup.
+        2. Report your findings using the audit checklist below.
+
+        ## Audit Checklist
+
+        Check each of the following. For each violation, describe the issue and
+        delegate the fix with a precise instruction.
+
+        ### 1. Devenv immutability instructions in CLAUDE.md
+        Does CLAUDE.md contain an "## Environment" section that tells agents NOT to
+        run imperative package managers (pip, brew, cargo install, apt-get, etc.)?
+
+        If missing: "Ask the metadev agent to add devenv immutability instructions
+        to CLAUDE.md."
+
+        ### 2. Packages declared in devenv.nix
+        Are there shell scripts, Makefiles, READMEs, or CI files that run
+        `pip install`, `npm install -g`, `cargo install`, `brew install`,
+        `apt-get install`, or similar imperative package manager commands?
+
+        For each violation: use `search_packages` to find the correct nix package
+        name, then say "Ask the code-minion to add <package> to devenv.nix packages
+        and remove the imperative install from <file>."
+
+        ### 3. CI uses devenv test / devenv ci
+        Check .github/workflows/, .gitlab-ci.yml, Justfile, etc. Are CI pipelines
+        calling `cargo test`, `npm test`, `pytest`, or other test runners directly
+        rather than going through `devenv test` or `devenv ci`?
+
+        For each violation: "Ask the code-minion to update <file> to use
+        `devenv test` instead of <command>."
+
+        ### 4. Hand-managed config files that devenv could generate
+        Are there config files (e.g. .env, .envrc, tool version files) that are
+        checked in and maintained by hand when devenv hooks could generate them?
+
+        Use `search_options` to check if devenv has a relevant option. If it does:
+        "Ask the code-minion to replace <file> with a devenv hook that generates it."
+
+        ### 5. Metadev import present and current
+        Does devenv.yaml list metadev as an input? Does devenv.nix import the metadev
+        module? If either is missing, flag it.
+
+        ## Using the Search Tools
+
+        - `search_packages`: find the correct nix attribute name for a package
+          (e.g. search "ripgrep" to confirm it's `pkgs.ripgrep`)
+        - `search_options`: find devenv config options
+          (e.g. search "languages.rust" to see what options are available)
+
+        Always use these tools to give precise, actionable recommendations rather
+        than guessing package or option names.
+
+        ## Delegation Rules
+
+        - Devenv CLAUDE.md instructions missing → metadev agent
+        - Package needs adding to devenv.nix → code-minion
+        - CI pipeline needs updating → code-minion
+        - Devenv hook needs writing → code-minion
+        - Devenv import missing → code-minion
+
+        Never say "you should" — always say "ask the <agent> to <specific action>."
+
+        ## What You Do NOT Do
+
+        - Do NOT write or edit any files
+        - Do NOT run shell commands
+        - Do NOT commit
+        - Do NOT guess package names — use search_packages to verify
 
         ${metaenvSkill}
       '';
@@ -1000,6 +1118,8 @@ in
            - `mcp_call_tool` — exercise each tool with representative arguments
            - `mcp_raw_request` — test edge cases and error handling
         5. Provide the devenv.nix snippet for registration
+
+        ${metaenvSkill}
       '';
     };
   };
@@ -1054,6 +1174,8 @@ in
       "mcp__gh-ci__gh_run_view"
       "mcp__gh-ci__gh_pr_checks"
       "mcp__just__just_list"
+      "mcp__devenv__search_packages"
+      "mcp__devenv__search_options"
     ];
     enableAllProjectMcpServers = true;
     enabledMcpjsonServers = [
@@ -1066,6 +1188,8 @@ in
       "just"
       "mcp-test"
       "rust-codebase"
+      "ssh"
+      "devenv"
     ];
   };
 }

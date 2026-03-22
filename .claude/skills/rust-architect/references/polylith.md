@@ -194,6 +194,7 @@ storage = "components/storage-memory"
 Profile commands:
 
 ```bash
+cargo polylith profile new <name>                         # create a new empty profile
 cargo polylith profile list [--json]                      # list defined profiles
 cargo polylith profile build <name> [--no-build]          # activate profile (rewrites Cargo.tomls); --no-build patches without building
 cargo polylith profile add <interface> \
@@ -268,7 +269,9 @@ Managing this structure by hand is tedious. `cargo-polylith` handles:
 - **Scaffolding**: `cargo polylith component new <name> [--interface <NAME>]` — always creates interface metadata (defaults to crate name)
 - **Interface update**: `cargo polylith component update <name> [--interface <NAME>]` — set/replace interface on an existing component
 - **Base scaffolding**: `cargo polylith base new <name>` creates `bases/<name>/` with `lib.rs` (pub fn run() skeleton) and Cargo.toml
+- **Base update**: `cargo polylith base update <name> [--test-base]` — toggle test-base metadata on an existing base
 - **Project management**: `cargo polylith project new <name>` generates the project workspace manifest
+- **Implementation selection**: `cargo polylith project set-impl <project> <interface> <path>` — set which component provides an interface in a project
 - **Overview**: `cargo polylith deps` shows which components are used by which bases and projects
 - **Interface checking**: `cargo polylith check` verifies structural correctness and reports violations
 - **Interactive editor**: `cargo polylith edit` — TUI to toggle project/component connections, set interface names ('i' key), write all staged changes to disk ('w')

@@ -1,0 +1,1 @@
+/nix/store/g956sq6np8825jsk9fisf2ny5hwpjvvz-claude-agents-devenv.md
