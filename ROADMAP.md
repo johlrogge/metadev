@@ -9,35 +9,34 @@
 
 ---
 
-## Milestone 1: Eliminate Bash from all agents
+## Milestone 1: Eliminate Bash from all agents [DONE — 0.10.0]
 
 **Goal:** Every agent operates within its named tool boundary. No Bash escape hatch.
 
-### 1.1 Wire mcp-test into toolsmith
-The mcp-test server already exists. Add its tools to the toolsmith agent definition and remove Bash.
+### 1.1 Wire mcp-test into toolsmith [DONE]
+The mcp-test server already exists. Tools added to toolsmith agent definition; Bash removed.
 
-### 1.2 Tighten code-minion
-Remove the 4 polylith read tools (`polylith_info`, `polylith_deps`, `polylith_check`, `polylith_status`) from code-minion. These belong to the polylith agent. If a minion needs polylith context, the orchestrator should supply it.
+### 1.2 Tighten code-minion [DONE]
+Removed the 4 polylith read tools (`polylith_info`, `polylith_deps`, `polylith_check`, `polylith_status`) from code-minion. These belong to the polylith agent.
 
-### 1.3 Build deploy MCP tools and de-Bash devops
-Design and build the minimum tool surface to replace Bash in devops: remote command execution, file transfer, service management. Then remove Bash from devops.
+### 1.3 Build deploy MCP tools and de-Bash devops [DONE]
+SSH MCP server added. devops agent now uses `mcp__ssh__ssh_run` and `mcp__ssh__scp_transfer` for remote operations. Bash removed from devops.
 
 ---
 
-## Milestone 2: Add the devenv agent
+## Milestone 2: Add the devenv agent [DONE — 0.10.0]
 
 **Goal:** devenv has a dedicated owner, fulfilling the "center of gravity" principle from VISION.md.
 
-### 2.1 Create devenv MCP tools
-Tools for reading devenv config, running hooks, checking environment status.
+### 2.1 Create devenv MCP tools [DONE]
+`mcp__devenv__search_packages` and `mcp__devenv__search_options` available.
 
-### 2.2 Define the devenv agent
-Owns: `devenv.nix` editing, hook definitions, environment debugging, nix input management.
-Tools: Read/Write/Edit file tools + devenv MCP tools. No Bash.
+### 2.2 Define the devenv agent [DONE]
+The devenv agent is read-only: audits projects for compliance with the devenv-as-single-source-of-truth principle. Delegates all fixes to other agents.
 
-### 2.3 Clarify boundary between devenv agent and metadev agent
+### 2.3 Clarify boundary between devenv agent and metadev agent [DONE]
 metadev agent owns: skills, docs, conventions, onboarding.
-devenv agent owns: nix configuration, environment setup, hook definitions.
+devenv agent owns: environment auditing, package name lookup, devenv option lookup.
 
 ---
 
