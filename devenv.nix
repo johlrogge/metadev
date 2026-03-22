@@ -832,7 +832,23 @@ in
            Suggest adding if the project has non-obvious structure.
         5. **Stale content** — references to files, commands, or patterns that no longer exist.
            Flag anything that looks inconsistent with what you can observe via Glob/Read.
-        6. **Missing devenv immutability instructions** — does CLAUDE.md contain an
+        6. **Missing workflow instructions** — does CLAUDE.md name the multi-agent delegation
+           workflow as a hard constraint? The orchestrator must not write code directly.
+           If missing, offer to add (show first, write only after confirmation):
+           ```markdown
+           ## Workflow
+
+           For any non-trivial code change, follow the multi-agent workflow:
+
+           1. **architect** — review and design; never writes code
+           2. **code-minion** — implements based on architect's instructions
+           3. **You (orchestrator)** — delegate; do NOT implement directly
+
+           When you reach for Edit or Write on source files: stop. Spawn a code-minion instead.
+           Small, isolated, obviously-safe changes (config values, typos) may be done directly.
+           Everything else goes through the workflow.
+           ```
+        7. **Missing devenv immutability instructions** — does CLAUDE.md contain an
            "## Environment" section warning agents not to use imperative package managers?
            If missing, offer to add the following block (show it, write only after confirmation):
            ```markdown
@@ -1203,6 +1219,17 @@ in
       "rust-codebase"
       "ssh"
       "devenv"
+    ];
+    hooks.PreToolUse = [
+      {
+        matcher = "Edit|Write|NotebookEdit";
+        hooks = [
+          {
+            type = "command";
+            command = "echo 'Delegation check: are you the orchestrator editing source files? If so, delegate to code-minion instead. (code-minions: proceed normally)'";
+          }
+        ];
+      }
     ];
   };
 }
