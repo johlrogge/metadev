@@ -477,8 +477,8 @@ in
 
         ## Generic Reference Docs (load on demand)
 
-        - ${./.}/.claude/skills/rust-architect/references/ecs-beyond-games.md — ECS for non-game domains
-        - ${./.}/.claude/skills/rust-architect/references/polylith.md — Polylith monorepo architecture
+        - .claude/skills/rust-architect/references/ecs-beyond-games.md — ECS for non-game domains
+        - .claude/skills/rust-architect/references/polylith.md — Polylith monorepo architecture
 
         ## Language Skills
 
@@ -494,14 +494,14 @@ in
         Always run `clippy_new_warnings` at the start of a Rust code review.
 
         Load on demand:
-        - ${./.}/.claude/skills/rust-architect/references/patterns.md — Newtype, typestate, builder, extension traits, RAII, interior mutability, strategy
-        - ${./.}/.claude/skills/rust-architect/references/lifetimes.md — Lifetime rules, common patterns, HRTB, debugging borrow checker errors
-        - ${./.}/.claude/skills/rust-architect/references/error-handling.md — thiserror vs eyre/anyhow, error type design, layer-appropriate strategies
-        - ${./.}/.claude/skills/rust-architect/references/async-tokio.md — Tokio runtime, channels, sync primitives, avoiding blocking in async
-        - ${./.}/.claude/skills/rust-architect/references/type-driven-design.md — Making illegal states unrepresentable, newtypes, typestate, phantom types
-        - ${./.}/.claude/skills/rust-architect/references/embedded.md — Embassy on ESP32/Raspberry Pi, async embedded, hardware abstractions
-        - ${./.}/.claude/skills/rust-architect/references/tooling.md — bacon for background checking, just for task automation
-        - ${./.}/.claude/skills/rust-architect/references/testing.md — Test philosophy, rstest, proptest, test doubles, TDD, Unit Test Laws
+        - .claude/skills/rust-architect/references/patterns.md — Newtype, typestate, builder, extension traits, RAII, interior mutability, strategy
+        - .claude/skills/rust-architect/references/lifetimes.md — Lifetime rules, common patterns, HRTB, debugging borrow checker errors
+        - .claude/skills/rust-architect/references/error-handling.md — thiserror vs eyre/anyhow, error type design, layer-appropriate strategies
+        - .claude/skills/rust-architect/references/async-tokio.md — Tokio runtime, channels, sync primitives, avoiding blocking in async
+        - .claude/skills/rust-architect/references/type-driven-design.md — Making illegal states unrepresentable, newtypes, typestate, phantom types
+        - .claude/skills/rust-architect/references/embedded.md — Embassy on ESP32/Raspberry Pi, async embedded, hardware abstractions
+        - .claude/skills/rust-architect/references/tooling.md — bacon for background checking, just for task automation
+        - .claude/skills/rust-architect/references/testing.md — Test philosophy, rstest, proptest, test doubles, TDD, Unit Test Laws
 
         Rust-specific checklist additions:
         - **Lifetime correctness** — borrows correct? Ownership simpler?
@@ -639,13 +639,13 @@ in
         mode, what should live under the leader key, and what Helix users will find intuitive.
 
         On startup, invoke the helix skill:
-        Read ${./.}/.claude/skills/helix/SKILL.md
+        Read .claude/skills/helix/SKILL.md
 
         Then load reference docs on demand:
-        - ${./.}/.claude/skills/helix/references/philosophy.md — selection-first model, Kakoune origins
-        - ${./.}/.claude/skills/helix/references/modes.md — all modes, sticky/non-sticky, prefix keys
-        - ${./.}/.claude/skills/helix/references/keybindings.md — complete default keybinding reference
-        - ${./.}/.claude/skills/helix/references/design-patterns.md — layer model, conventions, conflict checklist
+        - .claude/skills/helix/references/philosophy.md — selection-first model, Kakoune origins
+        - .claude/skills/helix/references/modes.md — all modes, sticky/non-sticky, prefix keys
+        - .claude/skills/helix/references/keybindings.md — complete default keybinding reference
+        - .claude/skills/helix/references/design-patterns.md — layer model, conventions, conflict checklist
 
         ## Your Approach
 
@@ -738,7 +738,7 @@ in
         These paths are baked in at build time and are always readable:
 
         ### helix — Helix editor keymap expert skill
-        Source files:
+        Source files (read from nix store, write to install target):
         - ${./.}/.claude/skills/helix/SKILL.md
         - ${./.}/.claude/skills/helix/references/philosophy.md
         - ${./.}/.claude/skills/helix/references/modes.md
@@ -747,7 +747,7 @@ in
         Install target: .claude/skills/helix/
 
         ### rust-architect (reference docs for the architect agent)
-        Source files:
+        Source files (read from nix store, write to install target):
         - ${./.}/.claude/skills/rust-architect/references/async-tokio.md
         - ${./.}/.claude/skills/rust-architect/references/ecs-beyond-games.md
         - ${./.}/.claude/skills/rust-architect/references/embedded.md
@@ -763,7 +763,7 @@ in
         (the agent loads from architect/, not rust-architect/).
 
         ### conventional-commits — Commit message format for the commit agent
-        Source files:
+        Source files (read from nix store, write to install target):
         - ${./.}/.claude/skills/conventional-commits/SKILL.md
         Install target: .claude/skills/conventional-commits/
 
@@ -976,6 +976,18 @@ in
         Does devenv.yaml list metadev as an input? Does devenv.nix import the metadev
         module? If either is missing, flag it.
 
+        ### 6. Hardcoded nix store paths in agent files
+        Grep `.claude/agents/*.md` for `/nix/store/`. Agent prompts must never
+        contain hardcoded nix store paths — these hash-encoded paths change on every
+        devenv rebuild, causing agents to reference stale or nonexistent locations.
+
+        The correct pattern is to use `${./.}` interpolation in devenv.nix, which
+        Nix resolves to the correct store path at build time.
+
+        For each violation: "Ask the code-minion to replace the hardcoded
+        `/nix/store/<hash>-<name>/path/to/file` with `${./.}/path/to/file` in the
+        corresponding agent definition in devenv.nix."
+
         ## Using the Search Tools
 
         - `search_packages`: find the correct nix attribute name for a package
@@ -993,6 +1005,7 @@ in
         - CI pipeline needs updating → code-minion
         - Devenv hook needs writing → code-minion
         - Devenv import missing → code-minion
+        - Hardcoded nix store path in agent file → code-minion (fix in devenv.nix, not the agent file)
 
         Never say "you should" — always say "ask the <agent> to <specific action>."
 
