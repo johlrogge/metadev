@@ -30,6 +30,7 @@ Agents do autonomous work within clear limits:
 - **Commits:** yes — agents commit their work
 - **Pushing branches:** no — that crosses a trust boundary
 - **Pull requests:** yes — PRs are the lightweight checkpoint between agent work and integration
+- **Bash:** no — every agent is constrained to its named MCP tools. No escape hatch.
 
 ### Specialized agents own their domain
 

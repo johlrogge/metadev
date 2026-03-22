@@ -27,14 +27,17 @@ On shell entry you'll see available commands and a list of your projects.
 | brainstorm | opus | Thinking partner — draws ideas out through questions, reflection, and structured techniques |
 | code-minion | sonnet | Implementation specialist — writes code, implements planned features, writes tests |
 | commit | haiku | Git commits with conventional commit format, hook-aware |
-| devops | sonnet | Deployment agent — builds, deploys, and operates project infrastructure |
+| devenv | sonnet | Environment guardian — audits projects for compliance with the devenv-as-single-source-of-truth principle. Read-only. |
+| devops | sonnet | Deployment agent — builds, deploys, and operates project infrastructure via SSH MCP tools. No Bash. |
 | documenter | sonnet | README maintenance, polymorphic via project skills |
 | helix | opus | Helix keymap expert — advises on TUI keymap design using Helix/Kakoune conventions |
 | metadev | sonnet | Metadev project guide — installs skills, checks workspace docs, detects outdated conventions |
-| polylith | opus | Polylith architecture expert — design, scaffold, analyse, and migrate Rust/Cargo projects |
+| polylith | sonnet | Polylith architecture expert — design, scaffold, analyse, and migrate Rust/Cargo projects |
 | product-owner | opus | Product ownership and strategic guidance — scope, prioritise, and deliver continuous value |
 | release-manager | sonnet | Git flow lifecycle — features, releases, hotfixes. Never pushes. |
 | toolsmith | sonnet | Creates Babashka MCP tool servers for permission-free agent access |
+
+All agents operate within a strict named-tool boundary. No agent has a Bash escape hatch.
 
 ## Importing into a Project
 
@@ -183,3 +186,5 @@ If the file is missing or stale, re-enter the shell (`devenv shell`) to regenera
 **"Don't ask for permission, ask for a tool."**
 
 Every Bash permission prompt is a sign that a proper MCP tool is missing. The toolsmith agent creates these tools so other agents can work autonomously.
+
+As of 0.10.0, all agents operate within strict named-tool boundaries. No agent uses Bash as a fallback. The devops agent deploys over SSH via `mcp__ssh__ssh_run` and `mcp__ssh__scp_transfer`. The devenv agent audits environments read-only via `mcp__devenv__search_packages` and `mcp__devenv__search_options`.

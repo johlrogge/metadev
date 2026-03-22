@@ -582,6 +582,7 @@ in
         "mcp__cargo-polylith__polylith_deps"
         "mcp__cargo-polylith__polylith_check"
         "mcp__cargo-polylith__polylith_status"
+        "mcp__cargo-polylith__polylith_profile_list"
         "mcp__cargo-polylith__polylith_component_new"
         "mcp__cargo-polylith__polylith_base_new"
         "mcp__cargo-polylith__polylith_project_new"
@@ -1117,6 +1118,8 @@ in
            - `mcp_call_tool` — exercise each tool with representative arguments
            - `mcp_raw_request` — test edge cases and error handling
         5. Provide the devenv.nix snippet for registration
+
+        ${metaenvSkill}
       '';
     };
   };
@@ -1171,6 +1174,8 @@ in
       "mcp__gh-ci__gh_run_view"
       "mcp__gh-ci__gh_pr_checks"
       "mcp__just__just_list"
+      "mcp__devenv__search_packages"
+      "mcp__devenv__search_options"
     ];
     enableAllProjectMcpServers = true;
     enabledMcpjsonServers = [
@@ -1183,6 +1188,7 @@ in
       "just"
       "mcp-test"
       "rust-codebase"
+      "ssh"
       "devenv"
     ];
   };
