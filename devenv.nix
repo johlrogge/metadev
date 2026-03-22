@@ -109,6 +109,12 @@ in
     args = [ "${./.}/tools/mcp-test/server.bb" ];
   };
 
+  claude.code.mcpServers.ssh = {
+    type = "stdio";
+    command = "bb";
+    args = [ "${./.}/tools/ssh/server.bb" ];
+  };
+
   claude.code.mcpServers.cargo-polylith = {
     type = "stdio";
     command = "cargo-polylith";
@@ -377,9 +383,11 @@ in
       proactive = false;
       permissionMode = "acceptEdits";
       tools = [
-        "Read" "Write" "Edit" "Bash" "Grep" "Glob" "Skill"
+        "Read" "Write" "Edit" "Grep" "Glob" "Skill"
         "mcp__just__just_run"
         "mcp__just__just_list"
+        "mcp__ssh__ssh_run"
+        "mcp__ssh__scp_transfer"
       ];
       prompt = ''
         You deploy and operate project infrastructure. Before doing anything, read
@@ -387,12 +395,18 @@ in
         deploy procedures, and service management commands.
 
         If no skill exists, report what is missing and offer to scaffold a template:
-        - Target host(s) and how to reach them
+        - Target host(s) — must be defined in ~/.metadev/projects/<project>/.ssh/config
         - Build commands (cross-compilation flags, just recipes, etc.)
-        - Deploy commands (scp, rsync, package manager, etc.)
-        - Service management (systemd, runit, etc.)
+        - Deploy commands (use scp_transfer for file transfers)
+        - Service management (use ssh_run to manage systemd/runit services)
         - Rollback procedure
         - Key files not to touch
+
+        ## SSH and SCP
+        Use `ssh_run(host, command)` to run commands on approved remote hosts.
+        Use `scp_transfer(src, dest)` to transfer files (remote paths use host:path format).
+        Approved hosts are defined per-project in ~/.metadev/projects/<project>/.ssh/config.
+        If a host is not reachable, explain what config is needed — do not try to add it yourself.
 
         ## Core Principle
 
@@ -650,10 +664,6 @@ in
         "mcp__rust-codebase__hygiene_report"
         "mcp__just__just_run"
         "mcp__just__just_list"
-        "mcp__cargo-polylith__polylith_info"
-        "mcp__cargo-polylith__polylith_deps"
-        "mcp__cargo-polylith__polylith_check"
-        "mcp__cargo-polylith__polylith_status"
       ];
       prompt = ''
         You implement planned features and fixes. You follow instructions from the architect.
@@ -884,7 +894,12 @@ in
       model = "sonnet";
       proactive = false;
       permissionMode = "acceptEdits";
-      tools = [ "Read" "Write" "Edit" "Bash" "Grep" "Glob" ];
+      tools = [
+        "Read" "Write" "Edit" "Grep" "Glob"
+        "mcp__mcp-test__mcp_list_tools"
+        "mcp__mcp-test__mcp_call_tool"
+        "mcp__mcp-test__mcp_raw_request"
+      ];
       prompt = ''
         You create lightweight MCP (Model Context Protocol) tool servers using Babashka (bb).
         These servers expose specific capabilities as typed tools that Claude Code agents can use
@@ -980,7 +995,10 @@ in
         1. Identify which CLI commands the tool wraps
         2. Design the tool interface (parameters, return type)
         3. Create the server in tools/<name>/
-        4. Test it works: `bb tools/<name>/server.bb`
+        4. Test it works using the mcp-test tools:
+           - `mcp_list_tools` with `server_cmd: "bb /abs/path/to/tools/<name>/server.bb"` — verify tools are exposed correctly
+           - `mcp_call_tool` — exercise each tool with representative arguments
+           - `mcp_raw_request` — test edge cases and error handling
         5. Provide the devenv.nix snippet for registration
       '';
     };
