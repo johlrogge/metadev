@@ -3,12 +3,12 @@
 let
   cargo-polylith-src = builtins.fetchGit {
     url = "https://github.com/johlrogge/cargo-polylith";
-    rev = "b47ba5ac784f8541dfb17fa77e8b43350e962365"; # tag 0.7.1
+    rev = "457af95d4a9b6dcf9145970653b2fe547fe826d5"; # tag 0.8.0
   };
 
   cargo-polylith-pkg = pkgs.rustPlatform.buildRustPackage {
     pname = "cargo-polylith";
-    version = "0.7.1";
+    version = "0.8.0";
     src = cargo-polylith-src;
     cargoLock.lockFile = cargo-polylith-src + "/Cargo.lock";
   };
@@ -125,6 +125,12 @@ in
     type = "stdio";
     command = "bb";
     args = [ "${./.}/tools/gh-ci/server.bb" ];
+  };
+
+  claude.code.mcpServers.gh-repo = {
+    type = "stdio";
+    command = "bb";
+    args = [ "${./.}/tools/gh-repo/server.bb" ];
   };
 
   claude.code.mcpServers.devenv = {
@@ -1210,6 +1216,7 @@ in
     enabledMcpjsonServers = [
       "cargo-polylith"
       "gh-ci"
+      "gh-repo"
       "git-flow"
       "git-flow-release"
       "git-read"

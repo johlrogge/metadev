@@ -58,18 +58,20 @@ bases/http_api/
 ```
 
 ### Project
-A Cargo workspace root under `projects/<name>/`. Owns `src/main.rs` and calls the bases' runtime-API functions. Projects CAN depend on components directly (valid polylith). Projects MUST depend on at least one base.
+A plain **bin crate** under `projects/<name>/`, listed as a member of the root workspace. Owns `src/main.rs` and calls the bases' runtime-API functions. Projects CAN depend on components directly (valid polylith). Projects MUST depend on at least one base.
 
 ```
 projects/production/
-  Cargo.toml      ← project workspace root + [package] + [[bin]]
+  Cargo.toml      ← [package] + [[bin]] only — NO [workspace] section
   src/main.rs     ← entry point: calls base fns, wires components
 ```
 
 A project has **no domain logic** — all logic lives in bricks. The `main.rs` is a thin wiring point.
 
+**Important (0.8.0+):** Projects must NOT have their own `[workspace]` section. They must be members of the root workspace. `ProjectHasOwnWorkspace` and `ProjectNotInRootWorkspace` are now hard errors.
+
 ### Development Workspace
-The repo root `Cargo.toml`. Lists ALL components and bases as members. Used for `cargo check`, IDE support, and day-to-day development. Not a deployment artifact.
+The repo root `Cargo.toml`. Lists ALL components, bases, **and projects** as members. Used for `cargo check`, IDE support, and day-to-day development. Not a deployment artifact.
 
 ## Directory Layout
 
@@ -92,7 +94,7 @@ repo-root/
       src/lib.rs          ← pub fn serve(...)
   projects/
     production/
-      Cargo.toml          ← project workspace root + [package] + [[bin]]
+      Cargo.toml          ← [package] + [[bin]] only — NO [workspace] section
       src/main.rs         ← entry point: calls base fns
     test-env/
       Cargo.toml          ← different implementation choices
@@ -108,6 +110,8 @@ repo-root/
 | `dep-key-mismatch` | Path dep key doesn't match `package.name` and no `package` alias | Add `package = "<real-crate-name>"` to the dep entry |
 | `profile_impl_path_not_found` | Profile entry references a component path that doesn't exist | Correct path in `.polylith/profiles.toml` or create the component |
 | `profile_impl_not_a_component` | Profile entry points to a path without `[package.metadata.polylith]` | Add metadata or point profile at a proper component |
+| `ProjectHasOwnWorkspace` | Project has its own `[workspace]` section — projects must be plain bin crates in the root workspace | Remove `[workspace]` from the project's `Cargo.toml` |
+| `ProjectNotInRootWorkspace` | Project is not listed as a member of the root workspace | Add the project path to the root `[workspace].members` |
 
 **Warnings** (exit 0, flag for attention):
 
@@ -119,7 +123,7 @@ repo-root/
 | `ProjectFeatureDrift` | Project dep has fewer features than root workspace dep | Add missing features |
 | `ProjectVersionDrift` | Project dep version differs from workspace | Align versions |
 | `MissingInterface` | Component missing `[package.metadata.polylith] interface` | Add metadata |
-| `AmbiguousInterface`, `DuplicateName`, `ProjectMissingBase`, `NotInRootWorkspace`, `BaseHasMainRs` | Structural issues | Fix per violation name |
+| `AmbiguousInterface`, `DuplicateName`, `ProjectMissingBase`, `BaseHasMainRs` | Structural issues | Fix per violation name |
 
 Notes:
 - Projects depending directly on components is valid and not flagged.
@@ -143,37 +147,34 @@ user = { path = "../../components/user_stub", package = "user-stub" }
 
 All code calls `use user::UserService;` identically in both projects. The compiler enforces that both components expose the same public API — mismatched functions are compile errors. No traits needed.
 
-### How Projects Select Implementations
+### How Projects Select Implementations (0.8.0+)
 
-Bases declare component dependencies as **workspace-inherited deps** (`workspace = true`). The project workspace defines which path each name resolves to:
+Projects are bin crates in the root workspace. Bases declare component dependencies as **workspace-inherited deps** (`workspace = true`), resolved from the root workspace's `[workspace.dependencies]` — which defaults to lightweight/stub implementations for fast development builds.
+
+To build a project with specific implementations (e.g. production deps), use profiles via `cargo polylith cargo`:
+
+```bash
+cargo polylith cargo --profile prod build --bin production
+```
+
+This generates a temporary standalone workspace applying the profile's implementation overrides and delegates to cargo. The project bin crate itself stays in the root workspace unchanged.
 
 ```toml
 # bases/http_api/Cargo.toml
 [dependencies]
-user = { workspace = true }   # resolves to whatever the project workspace says
+user = { workspace = true }   # resolved from root workspace (stub by default)
 ```
 
 ```toml
-# projects/production/Cargo.toml
-[workspace]
-members = ["../../bases/http_api"]
-
+# Cargo.toml (root workspace) — default/dev implementations
 [workspace.dependencies]
-user = { path = "../../components/user" }           # real implementation
+user = { path = "components/user-stub" }   # lightweight default
 ```
 
 ```toml
-# projects/test-env/Cargo.toml
-[workspace]
-members = ["../../bases/http_api"]
-
-[workspace.dependencies]
-user = { path = "../../components/user-stub", package = "user-stub" }  # stub
-```
-
-The `cargo-polylith` tool generates and manages these project workspace files. Build a specific project with:
-```bash
-cargo build --manifest-path projects/production/Cargo.toml
+# profiles/prod.profile — production implementation overrides
+[implementations]
+user = "components/user"
 ```
 
 ## Profiles
@@ -204,19 +205,12 @@ cargo polylith check --profile <name>                     # validate as if profi
 
 `profile build` resolves each mapping and rewrites `[dependencies]` in the relevant `Cargo.toml` files. `check --profile` adds profile-specific violations (`profile_impl_path_not_found`, `profile_impl_not_a_component`) on top of standard checks.
 
-## Project Workspace Structure
+## Project Cargo.toml Structure (0.8.0+)
 
-A project workspace lists bases as `[workspace].members`. Components are not workspace members (they live outside the project directory) — they come in as workspace-level path dependencies resolved transitively.
+Projects are plain bin crates — no `[workspace]` section. They live under `projects/` and are members of the root workspace.
 
 ```toml
 # projects/production/Cargo.toml
-[workspace]
-members = [
-  ".",
-  "../../bases/http_api",
-  "../../bases/cli",
-]
-
 [package]
 name = "production"
 version = "0.1.0"
@@ -228,13 +222,9 @@ path = "src/main.rs"
 [dependencies]
 http_api = { path = "../../bases/http_api" }
 cli      = { path = "../../bases/cli" }
-
-[workspace.dependencies]
-user     = { path = "../../components/user" }
-library  = { path = "../../components/library_service" }
+# Bases' transitive component deps are resolved from root [workspace.dependencies]
+# Use profiles + `cargo polylith cargo` to switch implementations at build time
 ```
-
-All bases in the same project share the same `[workspace.dependencies]` pool — one implementation choice per interface name per project.
 
 ## Shared Target Directory
 
@@ -249,7 +239,7 @@ Cargo hashes artifacts by (crate + features + profile + target triple), so ident
 
 ## The Development Workspace
 
-The repo root workspace lists all components and bases:
+The repo root workspace lists all components, bases, and projects:
 
 ```toml
 # Cargo.toml (repo root)
@@ -257,10 +247,15 @@ The repo root workspace lists all components and bases:
 members = [
   "components/*",
   "bases/*",
+  "projects/*",
 ]
+
+[workspace.dependencies]
+# Default (stub/dev) implementations — overridden at build time via profiles
+user = { path = "components/user-stub" }
 ```
 
-This gives full IDE support and lets you run `cargo check` across the entire codebase. Component dependencies here can use direct path deps (no `workspace = true` needed since the dev workspace isn't a project).
+This gives full IDE support and lets you run `cargo check` across the entire codebase. Projects in this workspace build with the stub implementations declared in `[workspace.dependencies]`. To build with production implementations, use `cargo polylith cargo --profile <name>`.
 
 ## What the cargo-polylith Tool Does
 
@@ -270,6 +265,7 @@ Managing this structure by hand is tedious. `cargo-polylith` handles:
 - **Interface update**: `cargo polylith component update <name> [--interface <NAME>]` — set/replace interface on an existing component
 - **Base scaffolding**: `cargo polylith base new <name>` creates `bases/<name>/` with `lib.rs` (pub fn run() skeleton) and Cargo.toml
 - **Base update**: `cargo polylith base update <name> [--test-base]` — toggle test-base metadata on an existing base
+- **Profile build**: `cargo polylith cargo --profile <name> <subcommand>` — generate a standalone workspace with profile overrides and delegate to cargo (the way to build with specific implementations)
 - **Project management**: `cargo polylith project new <name>` generates the project workspace manifest
 - **Implementation selection**: `cargo polylith project set-impl <project> <interface> <path>` — set which component provides an interface in a project
 - **Overview**: `cargo polylith deps` shows which components are used by which bases and projects
