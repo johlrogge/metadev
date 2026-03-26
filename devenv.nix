@@ -50,6 +50,7 @@ in
     gitflow
     gh
     babashka
+    adr-tools
     socat              # For Claude Code sandboxing
     inputs.claude-code-nix.packages.${pkgs.stdenv.hostPlatform.system}.default
     inputs.ctx.packages.${pkgs.stdenv.hostPlatform.system}.default
@@ -131,6 +132,12 @@ in
     type = "stdio";
     command = "bb";
     args = [ "${./.}/tools/gh-repo/server.bb" ];
+  };
+
+  claude.code.mcpServers.adr = {
+    type = "stdio";
+    command = "bb";
+    args = [ "${./.}/tools/adr/server.bb" ];
   };
 
   claude.code.mcpServers.devenv = {
@@ -1262,6 +1269,7 @@ in
     ];
     enableAllProjectMcpServers = true;
     enabledMcpjsonServers = [
+      "adr"
       "cargo-polylith"
       "gh-ci"
       "gh-repo"
