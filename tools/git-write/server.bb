@@ -89,11 +89,27 @@
                      {:ok true :output (str/trim (:out result))}
                      {:ok false :output (str/trim (:err result))}))))
 
+(defn git-rm [path files cached recursive]
+  (when (str/blank? files)
+    (throw (ex-info "files parameter is required" {})))
+  (let [file-list (str/split (str/trim files) #"\s+")]
+    (when (some forbidden-files file-list)
+      (throw (ex-info "Use specific file paths, not wildcards" {})))
+    (let [args (cond-> ["rm"]
+                 cached    (conj "--cached")
+                 recursive (conj "-r")
+                 true      (conj "--")
+                 true      (into file-list))]
+      (format-result (apply run-git path args)))))
+
 (defn handle-tool-call [name arguments]
   (try
     (case name
       "git_add"
       (git-add (:path arguments) (:files arguments))
+
+      "git_rm"
+      (git-rm (:path arguments) (:files arguments) (:cached arguments) (:recursive arguments))
 
       "git_commit"
       (git-commit (:path arguments) (:message arguments))
@@ -148,6 +164,15 @@
                                "commits"   {:type "string" :description "Space-separated list of commit hashes or refs to cherry-pick (e.g. \"abc1234\" or \"abc1234 def5678\")"}
                                "no_commit" {:type "boolean" :description "If true, apply changes but do not create a commit (-n flag), leaving them staged. Default: false."}}
                   :required ["path" "commits"]}}
+
+   {:name "git_rm"
+    :description "Remove files from the index (and optionally the working tree). Use cached=true to remove from index only without deleting the file (the common case for fixing .gitignore misses)."
+    :inputSchema {:type "object"
+                  :properties {"path"      {:type "string"  :description "Absolute path to the git repository root"}
+                               "files"     {:type "string"  :description "Space-separated list of file paths to remove. Must be explicit paths — never '-A', '.', or '*'."}
+                               "cached"    {:type "boolean" :description "If true, remove from index only, leaving the file on disk (git rm --cached). Default: false."}
+                               "recursive" {:type "boolean" :description "If true, allow recursive removal of directories (-r). Default: false."}}
+                  :required ["path" "files"]}}
 
    {:name "git_flow"
     :description "Run a git flow command. Supports feature/release/hotfix start and finish, feature list, and init."
