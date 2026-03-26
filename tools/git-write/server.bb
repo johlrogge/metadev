@@ -102,6 +102,13 @@
                  true      (into file-list))]
       (format-result (apply run-git path args)))))
 
+(defn git-mv [path src dest]
+  (when (str/blank? src)
+    (throw (ex-info "src parameter is required" {})))
+  (when (str/blank? dest)
+    (throw (ex-info "dest parameter is required" {})))
+  (format-result (run-git path "mv" "--" src dest)))
+
 (defn handle-tool-call [name arguments]
   (try
     (case name
@@ -110,6 +117,9 @@
 
       "git_rm"
       (git-rm (:path arguments) (:files arguments) (:cached arguments) (:recursive arguments))
+
+      "git_mv"
+      (git-mv (:path arguments) (:src arguments) (:dest arguments))
 
       "git_commit"
       (git-commit (:path arguments) (:message arguments))
@@ -173,6 +183,14 @@
                                "cached"    {:type "boolean" :description "If true, remove from index only, leaving the file on disk (git rm --cached). Default: false."}
                                "recursive" {:type "boolean" :description "If true, allow recursive removal of directories (-r). Default: false."}}
                   :required ["path" "files"]}}
+
+   {:name "git_mv"
+    :description "Move or rename a file, directory, or symlink within the repository (git mv). Stages the rename automatically."
+    :inputSchema {:type "object"
+                  :properties {"path" {:type "string" :description "Absolute path to the git repository root"}
+                               "src"  {:type "string" :description "Source path (relative to repository root)"}
+                               "dest" {:type "string" :description "Destination path (relative to repository root)"}}
+                  :required ["path" "src" "dest"]}}
 
    {:name "git_flow"
     :description "Run a git flow command. Supports feature/release/hotfix start and finish, feature list, and init."
