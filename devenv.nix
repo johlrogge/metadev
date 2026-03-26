@@ -3,12 +3,12 @@
 let
   cargo-polylith-src = builtins.fetchGit {
     url = "https://github.com/johlrogge/cargo-polylith";
-    rev = "457af95d4a9b6dcf9145970653b2fe547fe826d5"; # tag 0.8.0
+    rev = "beefad30e513892728c6b489245dc15506b65fc4"; # tag 0.9.1
   };
 
   cargo-polylith-pkg = pkgs.rustPlatform.buildRustPackage {
     pname = "cargo-polylith";
-    version = "0.8.0";
+    version = "0.9.1";
     src = cargo-polylith-src;
     cargoLock.lockFile = cargo-polylith-src + "/Cargo.lock";
   };
@@ -593,7 +593,6 @@ in
         "mcp__cargo-polylith__polylith_base_new"
         "mcp__cargo-polylith__polylith_project_new"
         "mcp__cargo-polylith__polylith_component_update"
-        "mcp__cargo-polylith__polylith_set_implementation"
         "mcp__cargo-polylith__polylith_profile_new"
         "mcp__cargo-polylith__polylith_profile_add"
         "mcp__cargo-polylith__polylith_base_update"
@@ -625,7 +624,6 @@ in
         - polylith_base_new           — create a new base
         - polylith_project_new        — create a new project
         - polylith_component_update   — update a component's deps/interface
-        - polylith_set_implementation — set which component provides an interface in a project
         - polylith_base_update        — toggle test-base metadata on an existing base
         - polylith_profile_new        — create a new empty profile
         - polylith_profile_add        — add or update one interface→implementation mapping in a profile
@@ -905,6 +903,31 @@ in
         - Explain the change and why it matters
         - Draft the migrated version
         - Write only after user confirms
+
+        **SSH deployment setup**
+        The devops agent uses the `ssh` MCP server for remote deployments. It requires:
+        1. `METADEV_PROJECT` set in the project's devenv.nix (identifies which SSH config to load)
+        2. A per-project SSH directory at `~/.metadev/projects/<project>/.ssh/` containing a
+           `config` file and any key files referenced by it
+
+        Detection: read `devenv.nix` and check whether `env.METADEV_PROJECT` is set.
+        If missing:
+        1. Identify a suitable project name (directory name is a good default)
+        2. Show the user what to add to their devenv.nix:
+           ```nix
+           env.METADEV_PROJECT = "<project-name>";
+           ```
+        3. Explain the SSH directory structure:
+           ```
+           ~/.metadev/projects/<project-name>/.ssh/
+             config          ← SSH config file (Host aliases, IdentityFile, etc.)
+             id_<keyname>    ← private key(s) referenced in config
+             id_<keyname>.pub
+           ```
+        4. Note that `IdentitiesOnly yes` should be set in the config so that only
+           project keys are offered — not keys from ~/.ssh or the agent
+        Do NOT write to ~/.metadev/ — only offer the devenv.nix snippet and explain
+        the directory structure. The human creates the keys and config manually.
 
         ### Agent permissions (.claude/settings.local.json)
         MCP tool permissions are now generated automatically by the metadev devenv module into
