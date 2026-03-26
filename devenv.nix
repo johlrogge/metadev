@@ -735,6 +735,10 @@ in
         3. Implement the code to make the test pass
         4. Run `cargo_check` and `cargo_clippy` — fix all errors and warnings
         5. Run `cargo_test` or `hygiene_report` — confirm tests pass
+           **Reading test results:** only counted (executed) passes are successes.
+           Filtered-out tests do NOT count as passes — they are absent, not green.
+           Zero passes with zero failures is a smell: it means no tests ran, not that
+           all tests passed. Flag this and write tests before declaring the task done.
         6. Report what you did and which files changed
 
         ## Constraints
