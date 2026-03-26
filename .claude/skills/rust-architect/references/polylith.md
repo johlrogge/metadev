@@ -3,6 +3,58 @@
 Polylith is a monorepo architecture for maximum component reuse across multiple deployable artifacts.
 Originally from Clojure; this document describes the Rust/Cargo mapping.
 
+## Component Granularity
+
+> "Each brick does one thing, and if we want to do one more thing, then we create another brick."
+> — Joakim Tengstrand
+
+This is the most important thing to get right. Polylith components are **small by design**.
+
+### Size guidelines
+
+| Metric | Target |
+|--------|--------|
+| Lines of code | 100–1000, **~300 average** |
+| Sub-modules | 1–4 |
+| Public functions | As few as make sense for the concept |
+| Dependencies on other components | Small — if a component depends on many others, it may be doing too much |
+
+The poly tool itself (the reference Clojure implementation) has **41 components** across its codebase, averaging ~310 LOC each. Component names are intentionally granular: `config-reader`, `path-finder`, `ws-explorer`, `text-table`, `change` — not `configuration`, `file-paths`, `workspace-utilities`.
+
+### When to split a component
+
+Split when:
+- A sub-module within the component could be independently useful elsewhere
+- Two distinct concerns share a crate only because they appeared together first
+- The component has grown past ~800 LOC and has clearly named sub-modules
+- Another component could depend on just part of it
+
+Do **not** split when:
+- The concerns are truly inseparable (e.g. a parser and its AST types)
+- Splitting would make the interface less clear without enabling any new reuse
+
+### How to name components
+
+Follow the "noun that does one thing" convention. The poly tool's components are instructive:
+
+| Instead of… | Prefer… |
+|-------------|---------|
+| `template` (parsing + expressions + DOM + rendering) | `dom`, `expr`, `template-data`, `renderer` |
+| `configuration` | `config-reader` |
+| `file-paths` | `path-finder` |
+| `workspace-utils` | `ws-explorer` |
+| `utilities` | split into specific names |
+
+A good component name is specific enough that a second component with a different name would clearly handle a different concern.
+
+### Recognising over-large components
+
+A component is probably too large if:
+- It has internal sub-modules that have clear, independent names (`dom.rs`, `expr.rs`, `data.rs`)
+- Its `lib.rs` re-exports from 4+ distinct sub-modules
+- Another brick currently depends on ALL of it but only needs part of it
+- Two different projects would want different subsets of its behaviour
+
 ## Core Concepts
 
 ### Component

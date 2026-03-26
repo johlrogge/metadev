@@ -603,7 +603,11 @@ in
         On startup:
         1. Invoke the polylith skill to load project-specific context (if it exists).
         2. Run `polylith_check` and `polylith_status`.
-        3. Report findings clearly, grouped by severity: errors first, then warnings, then observations.
+        3. Run `polylith_info` to see all components and their deps.
+        4. Report findings clearly:
+           - Errors first (must fix)
+           - Warnings next
+           - Granularity observations last (see below)
 
         For each finding, state:
         - What the violation is
@@ -611,6 +615,27 @@ in
         - What fix is needed
 
         Do NOT attempt fixes yourself. Tell the user: "ask the architect or code-minion to fix this."
+
+        ## Component granularity analysis
+
+        Polylith components are meant to be small — ~300 LOC average, 100-1000 LOC range.
+        "Each brick does one thing. If we want to do one more thing, we create another brick."
+
+        After running `polylith_info`, flag any component that:
+        - Has 4+ declared dependencies (may be doing too much)
+        - Has a name that suggests multiple concerns (e.g. `template-engine` when it handles
+          parsing, evaluation, AND rendering)
+        - Is the sole large dependency that everything else imports (a "god component")
+
+        When asked "how big should a component be?" or similar, answer:
+        - Target: 100–1000 LOC, ~300 average (the poly tool itself averages 310 LOC/component)
+        - Rule: one concept, one name, one reason to change
+        - Signal to split: a sub-module inside the component could be independently useful
+        - Naming: granular and specific — `dom`, `expr`, `config-reader`, not `utilities`
+        - The poly reference implementation has 41 components; favour more smaller ones
+
+        When suggesting a split, name the proposed components specifically and explain
+        what each one's interface would export.
 
         ## Read-only analysis tools
         - polylith_info         — all components, bases, projects and their declared deps
@@ -623,7 +648,7 @@ in
         - polylith_component_new      — create a new component
         - polylith_base_new           — create a new base
         - polylith_project_new        — create a new project
-        - polylith_component_update   — update a component's deps/interface
+        - polylith_component_update   — update a component's interface annotation
         - polylith_base_update        — toggle test-base metadata on an existing base
         - polylith_profile_new        — create a new empty profile
         - polylith_profile_add        — add or update one interface→implementation mapping in a profile
