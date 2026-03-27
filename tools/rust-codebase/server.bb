@@ -87,7 +87,7 @@
 
 (defn cargo-clippy [arguments]
   (let [path   (effective-path arguments)
-        result (run-cmd path "cargo" "clippy" "--message-format=json")]
+        result (run-cmd path "cargo" "clippy" "--message-format=json" "--" "-D" "warnings")]
     (let [messages (parse-cargo-json-messages (:out result))
           counts   (count-diagnostic-levels messages)
           diags    (format-diagnostics messages)
@@ -160,7 +160,7 @@
 (defn clippy-new-warnings [arguments]
   (let [path         (effective-path arguments)
         changed-files (git-changed-files path)
-        result        (run-cmd path "cargo" "clippy" "--message-format=json")]
+        result        (run-cmd path "cargo" "clippy" "--message-format=json" "--" "-D" "warnings")]
     (if (empty? changed-files)
       "No changed files detected by git diff. Run on a branch with uncommitted changes."
       (let [messages  (parse-cargo-json-messages (:out result))
@@ -250,7 +250,7 @@
                   :required   []}}
 
    {:name        "cargo_clippy"
-    :description "Run `cargo clippy` and return structured diagnostics. Accepts an optional path to the Cargo project or workspace root."
+    :description "Run `cargo clippy -- -D warnings` and return structured diagnostics. Warnings are treated as errors, matching CI strictness. Accepts an optional path to the Cargo project or workspace root."
     :inputSchema {:type       "object"
                   :properties {"path" {:type        "string"
                                        :description "Absolute path to the Cargo project or workspace root. Defaults to current directory."}}
