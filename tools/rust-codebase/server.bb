@@ -14,6 +14,26 @@
       (System/getProperty "user.dir")
       path)))
 
+(defn effective-profile [arguments]
+  (let [profile (:profile arguments)]
+    (if (or (nil? profile) (str/blank? profile))
+      "dev"
+      profile)))
+
+(defn polylith?
+  "Returns true when Polylith.toml exists at path — indicates a polylith workspace."
+  [path]
+  (.exists (java.io.File. path "Polylith.toml")))
+
+(defn cargo-cmd
+  "Returns a command vector for a cargo subcommand.
+   In polylith workspaces wraps as: cargo polylith cargo --profile <profile> <sub> <args...>
+   In regular workspaces passes through: cargo <sub> <args...>"
+  [path profile subcommand & args]
+  (if (polylith? path)
+    (apply vector "cargo" "polylith" "cargo" "--profile" profile subcommand args)
+    (apply vector "cargo" subcommand args)))
+
 (defn run-cmd
   "Run a shell command in the given directory. Returns {:ok bool :out string :err string :exit int}."
   [dir & args]
@@ -69,8 +89,9 @@
 ;; ---------------------------------------------------------------------------
 
 (defn cargo-check [arguments]
-  (let [path   (effective-path arguments)
-        result (run-cmd path "cargo" "check" "--message-format=json")]
+  (let [path    (effective-path arguments)
+        profile (effective-profile arguments)
+        result  (apply run-cmd path (cargo-cmd path profile "check" "--message-format=json"))]
     (if (:ok result)
       (let [messages (parse-cargo-json-messages (:out result))
             counts   (count-diagnostic-levels messages)
@@ -78,16 +99,18 @@
         (str "cargo check: OK\n"
              (when (seq counts) (str "Counts: " (pr-str counts) "\n"))
              diags))
-      (let [messages (parse-cargo-json-messages (:out result))
-            diags    (format-diagnostics messages)]
+      (let [messages     (parse-cargo-json-messages (:out result))
+            compiler-msgs (seq (keep format-diagnostic messages))
+            diags         (format-diagnostics messages)]
         (str "cargo check: FAILED (exit " (:exit result) ")\n"
-             (if (str/blank? diags)
-               (:err result)
-               diags))))))
+             (if compiler-msgs
+               diags
+               (or (not-empty (:err result)) "No output captured.")))))))
 
 (defn cargo-clippy [arguments]
-  (let [path   (effective-path arguments)
-        result (run-cmd path "cargo" "clippy" "--message-format=json" "--" "-D" "warnings")]
+  (let [path    (effective-path arguments)
+        profile (effective-profile arguments)
+        result  (apply run-cmd path (cargo-cmd path profile "clippy" "--message-format=json" "--" "-D" "warnings"))]
     (let [messages (parse-cargo-json-messages (:out result))
           counts   (count-diagnostic-levels messages)
           diags    (format-diagnostics messages)
@@ -97,8 +120,9 @@
            diags))))
 
 (defn cargo-metadata [arguments]
-  (let [path   (effective-path arguments)
-        result (run-cmd path "cargo" "metadata" "--format-version=1" "--no-deps")]
+  (let [path    (effective-path arguments)
+        profile (effective-profile arguments)
+        result  (apply run-cmd path (cargo-cmd path profile "metadata" "--format-version=1" "--no-deps"))]
     (if (:ok result)
       (let [meta      (json/parse-string (:out result) true)
             workspace (:workspace_root meta)
@@ -118,8 +142,9 @@
       (str "Error: " (:err result)))))
 
 (defn cargo-tree [arguments]
-  (let [path   (effective-path arguments)
-        result (run-cmd path "cargo" "tree")]
+  (let [path    (effective-path arguments)
+        profile (effective-profile arguments)
+        result  (apply run-cmd path (cargo-cmd path profile "tree"))]
     (if (:ok result)
       (if (str/blank? (:out result))
         "(no output)"
@@ -127,8 +152,9 @@
       (str "Error: " (:err result)))))
 
 (defn cargo-test [arguments]
-  (let [path   (effective-path arguments)
-        result (run-cmd path "cargo" "test")]
+  (let [path    (effective-path arguments)
+        profile (effective-profile arguments)
+        result  (apply run-cmd path (cargo-cmd path profile "test"))]
     ;; cargo test doesn't support --message-format=json in stable, capture combined output
     (let [combined (str (:out result)
                         (when-not (str/blank? (:err result))
@@ -158,9 +184,10 @@
       #{})))
 
 (defn clippy-new-warnings [arguments]
-  (let [path         (effective-path arguments)
+  (let [path          (effective-path arguments)
+        profile       (effective-profile arguments)
         changed-files (git-changed-files path)
-        result        (run-cmd path "cargo" "clippy" "--message-format=json" "--" "-D" "warnings")]
+        result        (apply run-cmd path (cargo-cmd path profile "clippy" "--message-format=json" "--" "-D" "warnings"))]
     (if (empty? changed-files)
       "No changed files detected by git diff. Run on a branch with uncommitted changes."
       (let [messages  (parse-cargo-json-messages (:out result))
@@ -182,14 +209,15 @@
                (str/join "\n\n" new-diags)))))))
 
 (defn test-coverage-check [arguments]
-  (let [path         (effective-path arguments)
+  (let [path          (effective-path arguments)
+        profile       (effective-profile arguments)
         changed-files (git-changed-files path)]
     ;; Try cargo llvm-cov first, fall back to cargo tarpaulin, then give up gracefully
     (let [llvm-cov-check (run-cmd path "cargo" "llvm-cov" "--version")]
       (cond
         ;; llvm-cov available
         (:ok llvm-cov-check)
-        (let [result (run-cmd path "cargo" "llvm-cov" "--json" "--summary-only")]
+        (let [result (apply run-cmd path (cargo-cmd path profile "llvm-cov" "--json" "--summary-only"))]
           (if (:ok result)
             (let [cov-data (try (json/parse-string (:out result) true) (catch Exception _ nil))]
               (if cov-data
@@ -209,7 +237,7 @@
         :else
         (let [tarp-check (run-cmd path "cargo" "tarpaulin" "--version")]
           (if (:ok tarp-check)
-            (let [result (run-cmd path "cargo" "tarpaulin" "--out" "Json" "--output-dir" "/tmp/tarpaulin-mcp")]
+            (let [result (apply run-cmd path (cargo-cmd path profile "tarpaulin" "--out" "Json" "--output-dir" "/tmp/tarpaulin-mcp"))]
               (if (:ok result)
                 (let [json-files (run-cmd "/tmp/tarpaulin-mcp" "ls")]
                   (str "tarpaulin ran. Output in /tmp/tarpaulin-mcp\n"
@@ -243,62 +271,78 @@
 
 (def tools
   [{:name        "cargo_check"
-    :description "Run `cargo check` and return structured errors and warnings. Accepts an optional path to the Cargo project or workspace root."
+    :description "Polylith-aware. Run `cargo check` and return structured errors and warnings. Accepts an optional path to the Cargo project or workspace root."
     :inputSchema {:type       "object"
-                  :properties {"path" {:type        "string"
-                                       :description "Absolute path to the Cargo project or workspace root. Defaults to current directory."}}
+                  :properties {"path"    {:type        "string"
+                                          :description "Absolute path to the Cargo project or workspace root. Defaults to current directory."}
+                               "profile" {:type        "string"
+                                          :description "Polylith profile to use (e.g. 'dev', 'production'). Only applies in Polylith workspaces (Polylith.toml detected). Defaults to 'dev'. Ignored for non-Polylith projects."}}
                   :required   []}}
 
    {:name        "cargo_clippy"
-    :description "Run `cargo clippy -- -D warnings` and return structured diagnostics. Warnings are treated as errors, matching CI strictness. Accepts an optional path to the Cargo project or workspace root."
+    :description "Polylith-aware. Run `cargo clippy -- -D warnings` and return structured diagnostics. Warnings are treated as errors, matching CI strictness. Accepts an optional path to the Cargo project or workspace root."
     :inputSchema {:type       "object"
-                  :properties {"path" {:type        "string"
-                                       :description "Absolute path to the Cargo project or workspace root. Defaults to current directory."}}
+                  :properties {"path"    {:type        "string"
+                                          :description "Absolute path to the Cargo project or workspace root. Defaults to current directory."}
+                               "profile" {:type        "string"
+                                          :description "Polylith profile to use (e.g. 'dev', 'production'). Only applies in Polylith workspaces (Polylith.toml detected). Defaults to 'dev'. Ignored for non-Polylith projects."}}
                   :required   []}}
 
    {:name        "cargo_metadata"
-    :description "Run `cargo metadata --no-deps` and return workspace structure: member crates, versions, manifest paths, and target kinds."
+    :description "Polylith-aware. Run `cargo metadata --no-deps` and return workspace structure: member crates, versions, manifest paths, and target kinds."
     :inputSchema {:type       "object"
-                  :properties {"path" {:type        "string"
-                                       :description "Absolute path to the Cargo project or workspace root. Defaults to current directory."}}
+                  :properties {"path"    {:type        "string"
+                                          :description "Absolute path to the Cargo project or workspace root. Defaults to current directory."}
+                               "profile" {:type        "string"
+                                          :description "Polylith profile to use (e.g. 'dev', 'production'). Only applies in Polylith workspaces (Polylith.toml detected). Defaults to 'dev'. Ignored for non-Polylith projects."}}
                   :required   []}}
 
    {:name        "cargo_tree"
-    :description "Run `cargo tree` and return the full dependency tree as text."
+    :description "Polylith-aware. Run `cargo tree` and return the full dependency tree as text."
     :inputSchema {:type       "object"
-                  :properties {"path" {:type        "string"
-                                       :description "Absolute path to the Cargo project or workspace root. Defaults to current directory."}}
+                  :properties {"path"    {:type        "string"
+                                          :description "Absolute path to the Cargo project or workspace root. Defaults to current directory."}
+                               "profile" {:type        "string"
+                                          :description "Polylith profile to use (e.g. 'dev', 'production'). Only applies in Polylith workspaces (Polylith.toml detected). Defaults to 'dev'. Ignored for non-Polylith projects."}}
                   :required   []}}
 
    {:name        "cargo_test"
-    :description "Run `cargo test` and return test results with pass/fail counts and failure details."
+    :description "Polylith-aware. Run `cargo test` and return test results with pass/fail counts and failure details."
     :inputSchema {:type       "object"
-                  :properties {"path" {:type        "string"
-                                       :description "Absolute path to the Cargo project or workspace root. Defaults to current directory."}}
+                  :properties {"path"    {:type        "string"
+                                          :description "Absolute path to the Cargo project or workspace root. Defaults to current directory."}
+                               "profile" {:type        "string"
+                                          :description "Polylith profile to use (e.g. 'dev', 'production'). Only applies in Polylith workspaces (Polylith.toml detected). Defaults to 'dev'. Ignored for non-Polylith projects."}}
                   :required   []}}
 
    {:name        "clippy_new_warnings"
-    :description "Detect only new clippy warnings introduced by current (uncommitted) changes. Uses `git diff --name-only` to identify changed files, then filters clippy output to those files only. Returns 'clean' or a list of new warnings."
+    :description "Polylith-aware. Detect only new clippy warnings introduced by current (uncommitted) changes. Uses `git diff --name-only` to identify changed files, then filters clippy output to those files only. Returns 'clean' or a list of new warnings."
     :inputSchema {:type       "object"
-                  :properties {"path" {:type        "string"
-                                       :description "Absolute path to the Cargo project or workspace root (must be a git repo). Defaults to current directory."}}
+                  :properties {"path"    {:type        "string"
+                                          :description "Absolute path to the Cargo project or workspace root (must be a git repo). Defaults to current directory."}
+                               "profile" {:type        "string"
+                                          :description "Polylith profile to use (e.g. 'dev', 'production'). Only applies in Polylith workspaces (Polylith.toml detected). Defaults to 'dev'. Ignored for non-Polylith projects."}}
                   :required   []}}
 
    {:name        "test_coverage_check"
-    :description "Check test coverage for files touched by current git changes. Uses cargo-llvm-cov if installed, falls back to cargo-tarpaulin, or returns a graceful message if neither is available."
+    :description "Polylith-aware. Version probes run bare; actual coverage invocations are profile-routed. Check test coverage for files touched by current git changes. Uses cargo-llvm-cov if installed, falls back to cargo-tarpaulin, or returns a graceful message if neither is available."
     :inputSchema {:type       "object"
-                  :properties {"path" {:type        "string"
-                                       :description "Absolute path to the Cargo project or workspace root. Defaults to current directory."}}
+                  :properties {"path"    {:type        "string"
+                                          :description "Absolute path to the Cargo project or workspace root. Defaults to current directory."}
+                               "profile" {:type        "string"
+                                          :description "Polylith profile to use (e.g. 'dev', 'production'). Only applies in Polylith workspaces (Polylith.toml detected). Defaults to 'dev'. Ignored for non-Polylith projects."}}
                   :required   []}}
 
    {:name        "hygiene_report"
-    :description "Convenience wrapper: runs cargo_test, clippy_new_warnings, and optionally test_coverage_check. Returns a structured pass/fail summary with details from all three."
+    :description "Polylith-aware. Convenience wrapper: runs cargo_test, clippy_new_warnings, and optionally test_coverage_check. Returns a structured pass/fail summary with details from all three."
     :inputSchema {:type       "object"
                   :properties {"path"          {:type        "string"
                                                 :description "Absolute path to the Cargo project or workspace root. Defaults to current directory."}
                                "skip_coverage" {:type        "string"
                                                 :enum        ["true" "false"]
-                                                :description "Set to 'true' to skip the coverage check (useful when no coverage tool is installed). Defaults to false."}}
+                                                :description "Set to 'true' to skip the coverage check (useful when no coverage tool is installed). Defaults to false."}
+                               "profile"       {:type        "string"
+                                                :description "Polylith profile to use (e.g. 'dev', 'production'). Only applies in Polylith workspaces (Polylith.toml detected). Defaults to 'dev'. Ignored for non-Polylith projects."}}
                   :required   []}}])
 
 ;; ---------------------------------------------------------------------------
