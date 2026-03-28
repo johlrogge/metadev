@@ -120,9 +120,9 @@
                  (or (not-empty raw) "No output captured."))))))))
 
 (defn cargo-clippy [arguments]
-  (let [path    (effective-path arguments)
-        profile (effective-profile arguments)
-        result  (apply run-cmd path (cargo-cmd path profile "clippy" "--message-format=json" "--" "-D" "warnings"))]
+  ;; Clippy lints the whole workspace regardless of polylith profiles — bypass polylith routing.
+  (let [path   (effective-path arguments)
+        result (run-cmd path "cargo" "clippy" "--workspace" "--message-format=json" "--" "-D" "warnings")]
     (let [messages      (parse-cargo-json-messages (:out result))
           compiler-msgs (seq (keep format-diagnostic messages))
           counts        (count-diagnostic-levels messages)
@@ -204,7 +204,7 @@
   (let [path          (effective-path arguments)
         profile       (effective-profile arguments)
         changed-files (git-changed-files path)
-        result        (apply run-cmd path (cargo-cmd path profile "clippy" "--message-format=json" "--" "-D" "warnings"))]
+        result        (run-cmd path "cargo" "clippy" "--workspace" "--message-format=json" "--" "-D" "warnings")]
     (if (empty? changed-files)
       "No changed files detected by git diff. Run on a branch with uncommitted changes."
       (let [messages  (parse-cargo-json-messages (:out result))
