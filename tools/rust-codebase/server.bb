@@ -117,7 +117,7 @@
                diags
                (let [raw (str/join "\n" (filter not-empty [(non-json-stdout (:out result))
                                                             (:err result)]))]
-                 (or (not-empty raw) "No output captured.")))))))))
+                 (or (not-empty raw) "No output captured."))))))))
 
 (defn cargo-clippy [arguments]
   (let [path    (effective-path arguments)
