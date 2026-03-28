@@ -111,13 +111,16 @@
   (let [path    (effective-path arguments)
         profile (effective-profile arguments)
         result  (apply run-cmd path (cargo-cmd path profile "clippy" "--message-format=json" "--" "-D" "warnings"))]
-    (let [messages (parse-cargo-json-messages (:out result))
-          counts   (count-diagnostic-levels messages)
-          diags    (format-diagnostics messages)
-          status   (if (:ok result) "OK" (str "FAILED (exit " (:exit result) ")"))]
+    (let [messages      (parse-cargo-json-messages (:out result))
+          compiler-msgs (seq (keep format-diagnostic messages))
+          counts        (count-diagnostic-levels messages)
+          diags         (format-diagnostics messages)
+          status        (if (:ok result) "OK" (str "FAILED (exit " (:exit result) ")"))]
       (str "cargo clippy: " status "\n"
            (when (seq counts) (str "Counts: " (pr-str counts) "\n"))
-           diags))))
+           (if (or (:ok result) compiler-msgs)
+             diags
+             (or (not-empty (:err result)) "No output captured."))))))
 
 (defn cargo-metadata [arguments]
   (let [path    (effective-path arguments)
