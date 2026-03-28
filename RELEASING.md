@@ -79,5 +79,8 @@ Run these agents in order before cutting a release:
 - Agents never push — that always stays with the human
 - Always confirm with release-manager before finishing a release or hotfix
 - Multiple code-minions can run in parallel on different tasks within the same feature
-- The commit agent reads `.claude/skills/conventional-commits/SKILL.md` for format
+- The commit agent invokes the conventional-commits skill for commit message format
 - The architect never writes code — it designs and reviews only
+- In Polylith workspaces, cargo MCP tools default to the `dev` profile. For release checks,
+  run against the deployment profile: look up its name in CLAUDE.md or `cargo polylith
+  profile list`, then pass it explicitly (e.g. `cargo_check {profile: "aws"}`)
