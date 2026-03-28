@@ -52,6 +52,24 @@
     (throw (ex-info "branch must be a valid alphanumeric branch name" {})))
   (format-result (run-git path "checkout" branch)))
 
+(defn git-merge [path branch no-ff message]
+  (when (str/blank? branch)
+    (throw (ex-info "branch is required" {})))
+  (when-not (valid-branch-name? branch)
+    (throw (ex-info "branch must be a valid alphanumeric branch name" {})))
+  (let [args (cond-> ["merge"]
+               (not (false? no-ff)) (conj "--no-ff")
+               (not (str/blank? message)) (into ["-m" message])
+               true (conj branch))
+        result (apply run-git path args)]
+    (if (:ok result)
+      (format-result result)
+      ;; On conflict, include git status so the caller can see what needs resolving
+      (let [status (run-git path "status" "--short")]
+        (str "Error: " (:output result)
+             (when-not (str/blank? (:output status))
+               (str "\n\nConflicting files:\n" (:output status))))))))
+
 (def allowed-flow-actions
   #{"feature start" "feature finish" "feature list"
     "release start" "release finish"
@@ -120,6 +138,9 @@
 
       "git_mv"
       (git-mv (:path arguments) (:src arguments) (:dest arguments))
+
+      "git_merge"
+      (git-merge (:path arguments) (:branch arguments) (:no_ff arguments) (:message arguments))
 
       "git_commit"
       (git-commit (:path arguments) (:message arguments))
@@ -191,6 +212,15 @@
                                "src"  {:type "string" :description "Source path (relative to repository root)"}
                                "dest" {:type "string" :description "Destination path (relative to repository root)"}}
                   :required ["path" "src" "dest"]}}
+
+   {:name "git_merge"
+    :description "Merge a branch into the current HEAD. Defaults to --no-ff to always create a merge commit (preserves branch history). On conflict, returns the error and a list of conflicting files."
+    :inputSchema {:type "object"
+                  :properties {"path"    {:type "string"  :description "Absolute path to the git repository root"}
+                               "branch"  {:type "string"  :description "Name of the branch to merge into HEAD"}
+                               "no_ff"   {:type "boolean" :description "If true (default), always create a merge commit even for fast-forward merges. Set to false to allow fast-forward."}
+                               "message" {:type "string"  :description "Optional custom merge commit message. If omitted, git uses its default message."}}
+                  :required ["path" "branch"]}}
 
    {:name "git_flow"
     :description "Run a git flow command. Supports feature/release/hotfix start and finish, feature list, and init."
