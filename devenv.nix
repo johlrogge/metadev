@@ -140,6 +140,12 @@ in
     args = [ "${./.}/tools/adr/server.bb" ];
   };
 
+  claude.code.mcpServers.gh-issues = {
+    type = "stdio";
+    command = "bb";
+    args = [ "${./.}/tools/gh-issues/server.bb" ];
+  };
+
   claude.code.mcpServers.devenv = {
     type = "stdio";
     command = "devenv";
@@ -345,6 +351,11 @@ in
         "mcp__gh-ci__gh_run_view"
         "mcp__gh-ci__gh_run_watch"
         "mcp__gh-ci__gh_pr_checks"
+        "mcp__gh-issues__gh_issue_list"
+        "mcp__gh-issues__gh_issue_read"
+        "mcp__gh-issues__gh_issue_create"
+        "mcp__gh-issues__gh_issue_close"
+        "mcp__gh-issues__gh_issue_comment"
         "Skill"
       ];
       prompt = ''
@@ -1267,6 +1278,8 @@ in
       "mcp__gh-ci__gh_run_list"
       "mcp__gh-ci__gh_run_view"
       "mcp__gh-ci__gh_pr_checks"
+      "mcp__gh-issues__gh_issue_list"
+      "mcp__gh-issues__gh_issue_read"
       "mcp__just__just_list"
       "mcp__devenv__search_packages"
       "mcp__devenv__search_options"
@@ -1276,6 +1289,7 @@ in
       "adr"
       "cargo-polylith"
       "gh-ci"
+      "gh-issues"
       "gh-repo"
       "git-flow"
       "git-flow-release"
