@@ -238,7 +238,7 @@ in
       tools = [ "mcp__git-read__git_status" "mcp__git-read__git_diff" "mcp__git-write__git_add" "mcp__git-write__git_commit" "Read" "Skill" ];
       prompt = ''
         You commit code changes to git. That is your ONLY job.
-        Before writing a commit message, read .claude/skills/conventional-commits/SKILL.md for format requirements.
+        Before writing a commit message, invoke the conventional-commits skill for format requirements.
         1. Run git_status and git_diff (with args "--staged") to understand what is being committed
         2. Stage the specified files with git_add (never pass "-A", ".", or "*" as files)
         3. Write a concise commit message (imperative mood, why not what)
