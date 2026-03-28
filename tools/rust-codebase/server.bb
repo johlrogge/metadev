@@ -71,10 +71,9 @@
   "Format a single compiler diagnostic message for human reading."
   [{:keys [reason message]}]
   (when (= reason "compiler-message")
-    (let [msg      (:message message)
-          level    (:level msg)
-          text     (:message msg)
-          rendered (:rendered msg)]
+    (let [level    (:level message)
+          text     (:message message)
+          rendered (:rendered message)]
       (or rendered (str "[" level "] " text)))))
 
 (defn format-diagnostics [messages]
