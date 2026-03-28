@@ -57,6 +57,16 @@
                  (try (json/parse-string line true)
                       (catch Exception _ nil)))))))
 
+(defn non-json-stdout
+  "Return non-JSON, non-blank lines from cargo stdout — raw rustc/linker errors."
+  [text]
+  (->> (str/split-lines text)
+       (remove str/blank?)
+       (remove (fn [line]
+                 (try (json/parse-string line) true
+                      (catch Exception _ false))))
+       (str/join "\n")))
+
 (defn format-diagnostic
   "Format a single compiler diagnostic message for human reading."
   [{:keys [reason message]}]
@@ -99,13 +109,15 @@
         (str "cargo check: OK\n"
              (when (seq counts) (str "Counts: " (pr-str counts) "\n"))
              diags))
-      (let [messages     (parse-cargo-json-messages (:out result))
+      (let [messages      (parse-cargo-json-messages (:out result))
             compiler-msgs (seq (keep format-diagnostic messages))
             diags         (format-diagnostics messages)]
         (str "cargo check: FAILED (exit " (:exit result) ")\n"
              (if compiler-msgs
                diags
-               (or (not-empty (:err result)) "No output captured.")))))))
+               (let [raw (str/join "\n" (filter not-empty [(non-json-stdout (:out result))
+                                                            (:err result)]))]
+                 (or (not-empty raw) "No output captured.")))))))))
 
 (defn cargo-clippy [arguments]
   (let [path    (effective-path arguments)
@@ -120,7 +132,9 @@
            (when (seq counts) (str "Counts: " (pr-str counts) "\n"))
            (if (or (:ok result) compiler-msgs)
              diags
-             (or (not-empty (:err result)) "No output captured."))))))
+             (let [raw (str/join "\n" (filter not-empty [(non-json-stdout (:out result))
+                                                          (:err result)]))]
+               (or (not-empty raw) "No output captured.")))))))
 
 (defn cargo-metadata [arguments]
   (let [path    (effective-path arguments)
