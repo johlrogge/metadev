@@ -1266,6 +1266,7 @@ in
       "mcp__git-read__git_show"
       "mcp__git-flow__gitflow_status"
       "mcp__git-flow__gitflow_feature_list"
+      "mcp__git-write__git_resolve_conflict"
       "mcp__cargo-polylith__polylith_info"
       "mcp__cargo-polylith__polylith_deps"
       "mcp__cargo-polylith__polylith_check"

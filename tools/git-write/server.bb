@@ -127,6 +127,15 @@
     (throw (ex-info "dest parameter is required" {})))
   (format-result (run-git path "mv" "--" src dest)))
 
+(defn git-resolve-conflict [path strategy files]
+  (when (not (contains? #{"ours" "theirs"} strategy))
+    (throw (ex-info "strategy must be 'ours' or 'theirs'" {})))
+  (when (str/blank? files)
+    (throw (ex-info "files parameter is required" {})))
+  (let [file-list (str/split (str/trim files) #"\s+")
+        args      (into ["checkout" (str "--" strategy) "--"] file-list)]
+    (format-result (apply run-git path args))))
+
 (defn handle-tool-call [name arguments]
   (try
     (case name
@@ -156,6 +165,9 @@
 
       "git_flow"
       (git-flow (:path arguments) (:action arguments) (:name arguments))
+
+      "git_resolve_conflict"
+      (git-resolve-conflict (:path arguments) (:strategy arguments) (:files arguments))
 
       (str "Unknown tool: " name))
     (catch clojure.lang.ExceptionInfo e
@@ -233,7 +245,15 @@
                                                 "init"]
                                          :description "The git flow sub-command to run"}
                                "name"   {:type "string" :description "Branch or version name. Required for start/finish actions; omit for 'feature list' and 'init'."}}
-                  :required ["path" "action"]}}])
+                  :required ["path" "action"]}}
+
+   {:name "git_resolve_conflict"
+    :description "Resolve a merge or cherry-pick conflict in specific files by accepting one side. Run git_add on the resolved files afterward to mark them as resolved."
+    :inputSchema {:type "object"
+                  :properties {"path"     {:type "string" :description "Absolute path to the git repository root"}
+                               "strategy" {:type "string" :enum ["ours" "theirs"] :description "'ours' to keep the current branch's version, 'theirs' to take the incoming version"}
+                               "files"    {:type "string" :description "Space-separated list of conflicted file paths to resolve"}}
+                  :required ["path" "strategy" "files"]}}])
 
 (loop []
   (when-let [line (read-line)]
