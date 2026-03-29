@@ -40,11 +40,35 @@
   [ssh-dir]
   (str ssh-dir "/config"))
 
+(def ssh-opts
+  "SSH options applied to every ssh/scp invocation."
+  ["-o" "BatchMode=yes"
+   "-o" "ConnectTimeout=10"])
+
+(def process-timeout-ms
+  "Maximum wall-clock time for any SSH/SCP invocation (30 seconds)."
+  30000)
+
+(defn run-with-timeout
+  "Runs cmd with stdout/stderr capture. Destroys process and throws on timeout."
+  [cmd]
+  (let [proc (p/process {:out :string :err :string :cmd cmd})
+        result (deref proc process-timeout-ms ::timeout)]
+    (if (= result ::timeout)
+      (do
+        (p/destroy-tree proc)
+        (throw (ex-info
+                (str "Timed out after " (/ process-timeout-ms 1000) " seconds. "
+                     "The remote host may be unreachable or the command is hanging. "
+                     "Command: " (str/join " " cmd))
+                {:cmd cmd :timeout-ms process-timeout-ms})))
+      result)))
+
 (defn run-ssh [host command]
   (let [ssh-dir     (resolve-ssh-config-dir)
         config-file (ssh-config-file ssh-dir)
-        result      (p/shell {:out :string :err :string}
-                             "ssh" "-F" config-file host command)]
+        cmd         (into ["ssh" "-F" config-file] (concat ssh-opts [host command]))
+        result      (run-with-timeout cmd)]
     (str/trim
      (str "exit code: " (:exit result) "\n"
           (when-not (str/blank? (:out result))
@@ -55,8 +79,8 @@
 (defn run-scp [src dest]
   (let [ssh-dir     (resolve-ssh-config-dir)
         config-file (ssh-config-file ssh-dir)
-        result      (p/shell {:out :string :err :string}
-                             "scp" "-F" config-file src dest)]
+        cmd         (into ["scp" "-F" config-file] (concat ssh-opts [src dest]))
+        result      (run-with-timeout cmd)]
     (if (zero? (:exit result))
       (str "Transfer successful: " src " -> " dest
            (when-not (str/blank? (:out result))
