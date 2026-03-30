@@ -171,23 +171,50 @@
   (let [path    (effective-path arguments)
         profile (effective-profile arguments)
         result  (apply run-cmd path (cargo-cmd path profile "test"))]
-    ;; cargo test doesn't support --message-format=json in stable, capture combined output
+    ;; cargo test doesn't support --message-format=json in stable, so we filter text output.
+    ;; Only keep: summary lines, failure names, failure details, and runner headers.
     (let [combined (str (:out result)
                         (when-not (str/blank? (:err result))
                           (str "\n" (:err result))))
           lines    (str/split-lines combined)
-          ;; Try to extract test result summary lines
-          summary  (->> lines
-                        (filter #(or (str/includes? % "test result:")
-                                     (str/includes? % "FAILED")
-                                     (str/includes? % "ok")
-                                     (str/starts-with? % "test ")))
-                        (take 200))
+          summaries (->> lines
+                         (filter #(str/includes? % "test result:")))
+          failed-tests (->> lines
+                            (filter #(and (str/starts-with? % "test ")
+                                         (str/ends-with? % "FAILED"))))
+          runner-headers (->> lines
+                              (filter #(str/starts-with? % "     Running ")))
+          in-failure-block (volatile! false)
+          failure-details  (persistent!
+                            (reduce (fn [acc line]
+                                      (cond
+                                        (str/starts-with? line "---- ")
+                                        (do (vreset! in-failure-block true)
+                                            (conj! acc line))
+
+                                        (and @in-failure-block
+                                             (or (str/starts-with? line "failures:")
+                                                 (str/includes? line "test result:")))
+                                        (do (vreset! in-failure-block false)
+                                            (conj! acc line))
+
+                                        @in-failure-block
+                                        (conj! acc line)
+
+                                        :else acc))
+                                    (transient [])
+                                    lines))
           status   (if (:ok result) "PASSED" "FAILED")]
       (str "cargo test: " status "\n\n"
-           (if (empty? summary)
-             combined
-             (str/join "\n" summary))))))
+           (when (seq runner-headers)
+             (str (str/join "\n" runner-headers) "\n\n"))
+           (str/join "\n" summaries)
+           (when (seq failed-tests)
+             (str "\n\nFailed tests:\n" (str/join "\n" failed-tests)))
+           (when (seq failure-details)
+             (str "\n\nFailure details:\n" (str/join "\n" failure-details)))
+           (when (and (empty? summaries) (empty? failed-tests))
+             (str "\n(No test output captured)\n" combined))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Hygiene tools
