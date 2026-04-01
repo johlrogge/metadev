@@ -960,13 +960,16 @@ in
         The ADR directory has been standardised to `docs/adr/` to align with the `adr-tools`
         convention. The ADR MCP tool and all agents now use `docs/adr/`.
 
-        Detection: if `docs/decisions/` exists and contains ADR files.
+        Detection: if `docs/decisions/` exists and contains ADR files, OR if any project
+        documentation references a non-standard ADR path (e.g. `docs/decisions/`).
         Action:
-        1. List the ADR files found in `docs/decisions/`
+        1. List the ADR files found in `docs/decisions/` (if directory exists)
         2. Explain: the standard ADR directory is now `docs/adr/`, matching the adr-tools
            convention. The ADR MCP tool (`adr_list`, `adr_new`, etc.) expects this location.
         3. Offer to move all files from `docs/decisions/` to `docs/adr/`
-        4. If the project's CLAUDE.md references `docs/decisions/`, offer to update it
+        4. Grep for `docs/decisions` in CLAUDE.md, RELEASING.md, README.md, CONTRIBUTING.md,
+           and any other markdown files in the project root. Report all stale references found
+           and offer to update them to `docs/adr/`
         5. Only act after explicit user confirmation
 
         ### Agent permissions (.claude/settings.local.json)
