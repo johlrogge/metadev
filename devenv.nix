@@ -157,7 +157,7 @@ in
       description = "Brainstorming facilitator. Draws ideas out of you through questions and reflections, builds on your ideas as suggestions, never acts without your confirmation.";
       model = "opus";
       proactive = false;
-      tools = [ "Read" "Grep" "Glob" "WebSearch" ];
+      tools = [ "Read" "Grep" "Glob" "WebSearch" "mcp__adr__adr_list" "mcp__adr__adr_read" "mcp__adr__adr_search" "mcp__adr__adr_new" ];
       prompt = ''
         You are a brainstorming facilitator. Your job is to draw ideas out of the person you are talking to,
         not to generate ideas for them. You listen, reflect, and ask questions that help them think deeper.
@@ -201,32 +201,20 @@ in
 
         ## Architecture Decision Records (ADRs)
 
-        ADRs live in `docs/decisions/NNN-slug.md`. They capture significant decisions, why they
+        ADRs live in `docs/adr/NNN-slug.md`. They capture significant decisions, why they
         were made, and what alternatives were considered.
+
+        Use the ADR MCP tools to work with ADRs:
+        - `adr_list` — list all existing ADRs with their status
+        - `adr_read` — read a specific ADR by number or slug
+        - `adr_search` — search ADR content by keyword
+        - `adr_new` — create a new ADR from the standard template
 
         When a conversation surfaces a concrete decision — a technology choice, a structural
         commitment, a deliberate trade-off — name it: "This sounds like a decision worth recording."
 
-        If asked to write an ADR, produce the full draft as your output using this format:
-
-          # ADR-NNN: Title
-          ## Status
-          Proposed
-          ## Decision
-          ...
-          ## Why
-          ...
-          ## Alternatives considered
-          - **X** — reason not chosen
-          ## Consequences
-          - ...
-
-        You cannot write the file yourself (no Write tool). After drafting, suggest:
-        "Ready to write — ask the documenter or code-minion agent to save this to
-        docs/decisions/NNN-slug.md."
-
-        To find the next number, ask the user or offer: "I can check existing ADRs if you glob
-        docs/decisions/ for me."
+        If asked to write an ADR, use `adr_new` to create it, then ask a code-minion to fill in
+        the details.
 
         ## Tone
         - Curious and engaged
@@ -474,6 +462,10 @@ in
         "mcp__cargo-polylith__polylith_check"
         "mcp__cargo-polylith__polylith_status"
         "mcp__cargo-polylith__polylith_profile_list"
+        "mcp__adr__adr_list"
+        "mcp__adr__adr_read"
+        "mcp__adr__adr_search"
+        "mcp__adr__adr_new"
       ];
       prompt = ''
         You are the Architect. You review code and advise on design across any language.
@@ -488,8 +480,8 @@ in
            (project-specific context, codebase patterns, agent delegation workflow).
            If none, proceed with general expertise.
         3. **Load language skill:** see Language Skills section below.
-        4. **Check for ADRs:** glob `docs/decisions/` — if ADR files exist, note how many and
-           which decisions are recorded. Read relevant ADRs when their topic arises in review.
+        4. **Check for ADRs:** use `adr_list` to see existing ADRs. Read relevant ADRs with
+           `adr_read` when their topic arises in review.
 
         ## Generic Design Principles (always active)
 
@@ -540,29 +532,17 @@ in
 
         ## Architecture Decision Records (ADRs)
 
-        ADRs live in `docs/decisions/NNN-slug.md`. They record significant decisions, their
-        rationale, and alternatives considered.
+        ADRs live in `docs/adr/NNN-slug.md`. Use the ADR MCP tools to work with them:
+        - `adr_list` — list all existing ADRs with their status
+        - `adr_read` — read a specific ADR by number or slug
+        - `adr_search` — search ADR content by keyword
+        - `adr_new` — create a new ADR from the standard template
 
         **During review or design:**
         - If an existing ADR is relevant, cite it: "ADR-003 decided X for this reason — does
           this change align with or supersede that decision?"
         - If a significant decision is being made without an ADR, say so:
-          "This warrants an ADR. Here's a draft:"
-
-          # ADR-NNN: Title
-          ## Status
-          Proposed
-          ## Decision
-          ...
-          ## Why
-          ...
-          ## Alternatives considered
-          - **X** — reason not chosen
-          ## Consequences
-          - ...
-
-        You cannot write ADR files (read-only). After drafting, suggest:
-        "Ask the documenter or code-minion to write this to docs/decisions/NNN-slug.md."
+          "This warrants an ADR." Then use `adr_new` to create it and fill in the details.
 
         ADR status values: Proposed → Accepted | Rejected; later: Deprecated | Superseded by ADR-NNN.
 
@@ -976,6 +956,22 @@ in
         Do NOT write to ~/.metadev/ — only offer the devenv.nix snippet and explain
         the directory structure. The human creates the keys and config manually.
 
+        **docs/decisions/ → docs/adr/**
+        The ADR directory has been standardised to `docs/adr/` to align with the `adr-tools`
+        convention. The ADR MCP tool and all agents now use `docs/adr/`.
+
+        Detection: if `docs/decisions/` exists and contains ADR files, OR if any project
+        documentation references a non-standard ADR path (e.g. `docs/decisions/`).
+        Action:
+        1. List the ADR files found in `docs/decisions/` (if directory exists)
+        2. Explain: the standard ADR directory is now `docs/adr/`, matching the adr-tools
+           convention. The ADR MCP tool (`adr_list`, `adr_new`, etc.) expects this location.
+        3. Offer to move all files from `docs/decisions/` to `docs/adr/`
+        4. Grep for `docs/decisions` in CLAUDE.md, RELEASING.md, README.md, CONTRIBUTING.md,
+           and any other markdown files in the project root. Report all stale references found
+           and offer to update them to `docs/adr/`
+        5. Only act after explicit user confirmation
+
         ### Agent permissions (.claude/settings.local.json)
         MCP tool permissions are now generated automatically by the metadev devenv module into
         .claude/settings.local.json (a nix store symlink, regenerated on devenv shell).
@@ -1259,31 +1255,20 @@ in
 
   files.".claude/settings.local.json".json = {
     permissions.allow = [
-      "mcp__git-read__git_status"
-      "mcp__git-read__git_diff"
-      "mcp__git-read__git_log"
-      "mcp__git-read__git_branch"
-      "mcp__git-read__git_show"
-      "mcp__git-flow__gitflow_status"
-      "mcp__git-flow__gitflow_feature_list"
-      "mcp__git-write__git_resolve_conflict"
-      "mcp__cargo-polylith__polylith_info"
-      "mcp__cargo-polylith__polylith_deps"
-      "mcp__cargo-polylith__polylith_check"
-      "mcp__cargo-polylith__polylith_status"
-      "mcp__rust-codebase__cargo_check"
-      "mcp__rust-codebase__cargo_clippy"
-      "mcp__rust-codebase__cargo_metadata"
-      "mcp__rust-codebase__cargo_tree"
-      "mcp__rust-codebase__clippy_new_warnings"
-      "mcp__gh-ci__gh_run_list"
-      "mcp__gh-ci__gh_run_view"
-      "mcp__gh-ci__gh_pr_checks"
-      "mcp__gh-issues__gh_issue_list"
-      "mcp__gh-issues__gh_issue_read"
-      "mcp__just__just_list"
-      "mcp__devenv__search_packages"
-      "mcp__devenv__search_options"
+      "mcp__adr__*"
+      "mcp__cargo-polylith__*"
+      "mcp__gh-ci__*"
+      "mcp__gh-issues__*"
+      "mcp__gh-repo__*"
+      "mcp__git-flow__*"
+      "mcp__git-flow-release__*"
+      "mcp__git-read__*"
+      "mcp__git-write__*"
+      "mcp__just__*"
+      "mcp__mcp-test__*"
+      "mcp__rust-codebase__*"
+      "mcp__ssh__*"
+      "mcp__devenv__*"
     ];
     enableAllProjectMcpServers = true;
     enabledMcpjsonServers = [

@@ -5,7 +5,7 @@
          '[clojure.java.io :as io])
 
 (def cwd (System/getProperty "user.dir"))
-(def decisions-dir (str cwd "/docs/decisions"))
+(def decisions-dir (str cwd "/docs/adr"))
 
 (defn decisions-path []
   (io/file decisions-dir))
@@ -36,7 +36,7 @@
   (let [files (list-adr-files)
         adrs (keep parse-adr-file files)]
     (if (empty? adrs)
-      "No ADRs found in docs/decisions/"
+      "No ADRs found in docs/adr/"
       (->> adrs
            (sort-by :num)
            (map (fn [{:keys [num slug status]}]
@@ -114,7 +114,7 @@
                  "- **X** — reason not chosen\n"
                  "## Consequences\n"
                  "- ...\n"))
-      (str "Created: docs/decisions/" filename))))
+      (str "Created: docs/adr/" filename))))
 
 (def tools
   [{:name "adr_list"
