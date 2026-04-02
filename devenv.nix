@@ -3,12 +3,12 @@
 let
   cargo-polylith-src = builtins.fetchGit {
     url = "https://github.com/johlrogge/cargo-polylith";
-    rev = "2c37135f6d6356a56796dc9271f768ddfadc5a08"; # tag 0.10.0
+    rev = "12f7301999c6df0362328533f396160122f5cd14"; # tag 0.10.1
   };
 
   cargo-polylith-pkg = pkgs.rustPlatform.buildRustPackage {
     pname = "cargo-polylith";
-    version = "0.10.0";
+    version = "0.10.1";
     src = cargo-polylith-src;
     cargoLock.lockFile = cargo-polylith-src + "/Cargo.lock";
   };
