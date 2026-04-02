@@ -84,6 +84,9 @@ pub fn get_user(id: UserId) -> Result<User> { ... }
 
 **No traits required.** The interface is plain named functions, as Joakim Tengstrand (polylith inventor) intends. The crate's pub surface IS the interface contract.
 
+### Package metadata (0.10.0+)
+Workspace-wide package fields (`version`, `edition`, `authors`, `license`, `repository`) are declared in the root `Cargo.toml` `[package]` section. Prior to 0.10.0 these lived in `Polylith.toml [workspace.package]` — use `cargo polylith migrate-package-meta` or the `polylith_migrate_package_meta` MCP tool to move them.
+
 ### Interface metadata
 Cargo-polylith uses an explicit metadata declaration in each component's `Cargo.toml`:
 

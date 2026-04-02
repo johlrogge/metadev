@@ -3,12 +3,12 @@
 let
   cargo-polylith-src = builtins.fetchGit {
     url = "https://github.com/johlrogge/cargo-polylith";
-    rev = "beefad30e513892728c6b489245dc15506b65fc4"; # tag 0.9.1
+    rev = "2c37135f6d6356a56796dc9271f768ddfadc5a08"; # tag 0.10.0
   };
 
   cargo-polylith-pkg = pkgs.rustPlatform.buildRustPackage {
     pname = "cargo-polylith";
-    version = "0.9.1";
+    version = "0.10.0";
     src = cargo-polylith-src;
     cargoLock.lockFile = cargo-polylith-src + "/Cargo.lock";
   };
@@ -594,6 +594,7 @@ in
         "mcp__cargo-polylith__polylith_profile_new"
         "mcp__cargo-polylith__polylith_profile_add"
         "mcp__cargo-polylith__polylith_base_update"
+        "mcp__cargo-polylith__polylith_migrate_package_meta"
       ];
       prompt = ''
         You are a polylith architecture analyst for Rust/Cargo workspaces.
@@ -650,6 +651,9 @@ in
         - polylith_base_update        — toggle test-base metadata on an existing base
         - polylith_profile_new        — create a new empty profile
         - polylith_profile_add        — add or update one interface→implementation mapping in a profile
+
+        ## Migration tools
+        - polylith_migrate_package_meta — migrate [workspace.package] metadata from Polylith.toml to root Cargo.toml [package] (0.10.0+)
 
         ${metaenvSkill}
       '';
@@ -971,6 +975,24 @@ in
            and any other markdown files in the project root. Report all stale references found
            and offer to update them to `docs/adr/`
         5. Only act after explicit user confirmation
+
+        **Polylith.toml [workspace.package] → root Cargo.toml [package]**
+        Since cargo-polylith 0.10.0, package metadata (version, edition, authors, license,
+        repository) is read from the root `Cargo.toml [package]` instead of
+        `Polylith.toml [workspace.package]`. The `migrate_package_meta` MCP tool automates this.
+
+        Detection: if `Polylith.toml` exists and contains a `[workspace.package]` section (or
+        `[workspace]` with `package` sub-keys like `version`, `edition`, etc.).
+        Action:
+        1. Read `Polylith.toml` and check for `[workspace.package]` fields
+        2. Explain: cargo-polylith 0.10.0 reads package metadata from root Cargo.toml instead
+           of Polylith.toml. Fields like version, edition, authors, license, and repository
+           need to move to `[package]` in root Cargo.toml.
+        3. Show what fields will be migrated and where they will go
+        4. After user confirmation, invoke the `polylith_migrate_package_meta` MCP tool
+           (no parameters — it reads both files, merges without overwriting, and removes
+           the old section from Polylith.toml)
+        5. Report the result
 
         ### Agent permissions (.claude/settings.local.json)
         MCP tool permissions are now generated automatically by the metadev devenv module into
