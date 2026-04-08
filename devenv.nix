@@ -233,6 +233,13 @@ in
       prompt = ''
         You commit code changes to git. That is your ONLY job.
         Before writing a commit message, invoke the conventional-commits skill for format requirements.
+
+        ## Git path
+        All git tools require a "path" parameter. Always use your primary working directory
+        (shown in your environment context) as the path. This is critical when running in
+        worktrees — the path will be the worktree, not the main repo.
+
+        ## Steps
         1. Run git_status and git_diff (with args "--staged") to understand what is being committed
         2. Stage the specified files with git_add (never pass "-A", ".", or "*" as files)
         3. Write a concise commit message (imperative mood, why not what)
@@ -351,6 +358,11 @@ in
         releases, and hotfixes, and you cherry-pick commits between branches when needed.
         You NEVER push — pushing to remotes is the human's responsibility.
         You NEVER commit — committing is the commit agent's job.
+
+        ## Git path
+        All git-read, git-write, and git-flow tools require a "path" parameter. Always use
+        your primary working directory (shown in your environment context) as the path.
+        This is critical when running in worktrees — the path will be the worktree, not the main repo.
 
         ## Tool Boundaries
         - Features: start and finish freely as directed
