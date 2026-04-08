@@ -136,6 +136,15 @@
         args      (into ["checkout" (str "--" strategy) "--"] file-list)]
     (format-result (apply run-git path args))))
 
+(defn git-apply [path patch check]
+  (when (str/blank? patch)
+    (throw (ex-info "patch parameter is required" {})))
+  (let [args (cond-> ["apply"]
+               check (conj "--check")
+               true  (conj "--")
+               true  (conj patch))]
+    (format-result (apply run-git path args))))
+
 (defn handle-tool-call [name arguments]
   (try
     (case name
@@ -168,6 +177,9 @@
 
       "git_resolve_conflict"
       (git-resolve-conflict (:path arguments) (:strategy arguments) (:files arguments))
+
+      "git_apply"
+      (git-apply (:path arguments) (:patch arguments) (:check arguments))
 
       (str "Unknown tool: " name))
     (catch clojure.lang.ExceptionInfo e
@@ -246,6 +258,14 @@
                                          :description "The git flow sub-command to run"}
                                "name"   {:type "string" :description "Branch or version name. Required for start/finish actions; omit for 'feature list' and 'init'."}}
                   :required ["path" "action"]}}
+
+   {:name "git_apply"
+    :description "Apply a patch file to the working tree (git apply). Useful for transferring changes from worktrees. Use check=true to test whether the patch applies cleanly without modifying files."
+    :inputSchema {:type "object"
+                  :properties {"path"  {:type "string" :description "Absolute path to the git repository root"}
+                               "patch" {:type "string" :description "Absolute path to the patch file to apply"}
+                               "check" {:type "boolean" :description "If true, only check if the patch applies cleanly without modifying files (--check). Default: false."}}
+                  :required ["path" "patch"]}}
 
    {:name "git_resolve_conflict"
     :description "Resolve a merge or cherry-pick conflict in specific files by accepting one side. Run git_add on the resolved files afterward to mark them as resolved."
