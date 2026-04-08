@@ -101,8 +101,8 @@
         cmd-args     (if (str/blank? name)
                        action-parts
                        (conj (vec action-parts) name))
-        result       (apply p/shell {:out :string :err :string :dir path}
-                            (into ["git" "flow"] cmd-args))]
+        result       (apply p/shell {:out :string :err :string}
+                            (into ["git" "-C" path "flow"] cmd-args))]
     (format-result (if (zero? (:exit result))
                      {:ok true :output (str/trim (:out result))}
                      {:ok false :output (str/trim (:err result))}))))

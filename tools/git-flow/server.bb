@@ -8,8 +8,8 @@
 ;; Deliberately excludes: release, hotfix (those are in git-flow-release)
 
 (defn run-git-flow [path & args]
-  (let [cmd    (into ["git" "flow"] args)
-        result (apply p/shell {:out :string :err :string :dir path} cmd)]
+  (let [cmd    (into ["git" "-C" path "flow"] args)
+        result (apply p/shell {:out :string :err :string} cmd)]
     (if (zero? (:exit result))
       {:ok true :output (str/trim (:out result))}
       {:ok false :output (str/trim (:err result))})))
@@ -48,8 +48,8 @@
         (fmt (run-git-flow path "feature" "list"))
 
         "gitflow_status"
-        (let [branches (apply p/shell {:out :string :err :string :dir path}
-                               ["git" "branch" "-a" "--no-color"])]
+        (let [branches (apply p/shell {:out :string :err :string}
+                               ["git" "-C" path "branch" "-a" "--no-color"])]
           (if (zero? (:exit branches))
             (str/trim (:out branches))
             (str "Error: " (str/trim (:err branches)))))
