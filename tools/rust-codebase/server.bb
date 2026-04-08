@@ -170,7 +170,7 @@
 (defn cargo-test [arguments]
   (let [path    (effective-path arguments)
         profile (effective-profile arguments)
-        result  (apply run-cmd path (cargo-cmd path profile "test"))]
+        result  (apply run-cmd path (cargo-cmd path profile "test" "--no-fail-fast"))]
     ;; cargo test doesn't support --message-format=json in stable, so we filter text output.
     ;; Only keep: summary lines, failure names, failure details, and runner headers.
     (let [combined (str (:out result)
