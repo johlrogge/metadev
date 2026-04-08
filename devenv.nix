@@ -1287,25 +1287,8 @@ in
     '';
   };
 
-  files.".claude/settings.local.json".json = {
-    permissions.allow = [
-      "mcp__adr__*"
-      "mcp__cargo-polylith__*"
-      "mcp__gh-ci__*"
-      "mcp__gh-issues__*"
-      "mcp__gh-repo__*"
-      "mcp__git-flow__*"
-      "mcp__git-flow-release__*"
-      "mcp__git-read__*"
-      "mcp__git-write__*"
-      "mcp__just__*"
-      "mcp__mcp-test__*"
-      "mcp__rust-codebase__*"
-      "mcp__ssh__*"
-      "mcp__devenv__*"
-    ];
-    enableAllProjectMcpServers = true;
-    enabledMcpjsonServers = [
+  files.".claude/settings.local.json".json = let
+    mcpServers = [
       "adr"
       "cargo-polylith"
       "gh-ci"
@@ -1321,6 +1304,10 @@ in
       "ssh"
       "devenv"
     ];
+  in {
+    permissions.allow = map (s: "mcp__${s}__*") mcpServers;
+    enableAllProjectMcpServers = true;
+    enabledMcpjsonServers = mcpServers;
     hooks.PreToolUse = [
       {
         matcher = "Edit|Write|NotebookEdit";
