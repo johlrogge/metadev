@@ -3,12 +3,12 @@
 let
   cargo-polylith-src = builtins.fetchGit {
     url = "https://github.com/johlrogge/cargo-polylith";
-    rev = "12f7301999c6df0362328533f396160122f5cd14"; # tag 0.10.1
+    rev = "8644c8b8de7ac3ef71352e09892a179c381da54b"; # tag 0.11.0
   };
 
   cargo-polylith-pkg = pkgs.rustPlatform.buildRustPackage {
     pname = "cargo-polylith";
-    version = "0.10.1";
+    version = "0.11.0";
     src = cargo-polylith-src;
     cargoLock.lockFile = cargo-polylith-src + "/Cargo.lock";
   };
@@ -607,6 +607,7 @@ in
         "mcp__cargo-polylith__polylith_profile_add"
         "mcp__cargo-polylith__polylith_base_update"
         "mcp__cargo-polylith__polylith_migrate_package_meta"
+        "mcp__cargo-polylith__polylith_bump"
       ];
       prompt = ''
         You are a polylith architecture analyst for Rust/Cargo workspaces.
@@ -663,6 +664,9 @@ in
         - polylith_base_update        — toggle test-base metadata on an existing base
         - polylith_profile_new        — create a new empty profile
         - polylith_profile_add        — add or update one interface→implementation mapping in a profile
+
+        ## Versioning tools (0.11.0+)
+        - polylith_bump — bump the workspace version in Polylith.toml; `level` (major/minor/patch) required in relaxed mode, auto-detected in strict mode; accepts `dry_run: true`
 
         ## Migration tools
         - polylith_migrate_package_meta — migrate [workspace.package] metadata from Polylith.toml to root Cargo.toml [package] (0.10.0+)
@@ -1005,6 +1009,51 @@ in
            (no parameters — it reads both files, merges without overwriting, and removes
            the old section from Polylith.toml)
         5. Report the result
+
+        **cargo-polylith 0.11.0 — versioning and profile model changes**
+        cargo-polylith 0.11.0 introduces a versioning model (`[versioning]` in Polylith.toml),
+        the `bump` command, and replaces the symlink-based profile model with `change-profile`
+        generation (root Cargo.toml IS the active workspace).
+
+        Detection: check `Polylith.toml` for a missing `[versioning]` section, or check for
+        stale `profiles/<name>/` subdirectories containing symlinks (pre-0.9.0 layout).
+
+        What changed:
+        1. **Profile model**: `profiles/<name>/` subdirectories with symlinks are gone. The root
+           `Cargo.toml` is now generated directly from the active profile. `profile migrate`
+           no longer creates symlink directories. `cargo polylith change-profile <name>` writes
+           the root `Cargo.toml` from a named profile. After migration, run `cargo` directly.
+        2. **`cargo polylith cargo`**: still works for temporarily building under a different
+           profile without permanently switching. Defaults to `dev` profile.
+        3. **Versioning policy**: `Polylith.toml` gains a `[versioning]` section with `policy`
+           (relaxed or strict) and `version`. `cargo polylith init` writes relaxed by default.
+        4. **`cargo polylith bump`**: in relaxed mode, requires a level arg (major/minor/patch).
+           In strict mode, auto-detects by analyzing public API changes with `syn`.
+        5. **New check warning**: `not-workspace-version` — brick not using `version.workspace = true`
+           in a relaxed-mode workspace.
+        6. **New MCP tool**: `polylith_bump` — exposes bump to agents; `level` required in
+           relaxed mode, optional in strict; accepts `dry_run: true`.
+
+        Action for projects with stale symlink-based profiles:
+        1. Remove `profiles/<name>/` directories containing symlinks and generated Cargo.toml
+        2. Run `cargo polylith profile migrate` (or `change-profile dev`) to regenerate root Cargo.toml
+        3. Update CI scripts using `cargo polylith profile build` (deprecated) to use
+           `cargo polylith cargo --profile <name> build` or `cargo polylith change-profile <name>`
+
+        Action for projects wanting versioning:
+        1. Add `[versioning]` to `Polylith.toml`:
+           ```toml
+           [versioning]
+           policy = "relaxed"
+           version = "0.1.0"
+           ```
+        2. For projects using git-flow with strict versioning, also set `tag_prefix`:
+           ```toml
+           [versioning]
+           policy = "strict"
+           version = "0.1.0"
+           tag_prefix = "v"
+           ```
 
         ### Agent permissions (.claude/settings.local.json)
         MCP tool permissions are now generated automatically by the metadev devenv module into
