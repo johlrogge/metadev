@@ -11,6 +11,7 @@ let
     version = "0.11.0";
     src = cargo-polylith-src;
     cargoLock.lockFile = cargo-polylith-src + "/Cargo.lock";
+    nativeBuildInputs = [ pkgs.git ];
   };
 
   metaenvSkill = ''
