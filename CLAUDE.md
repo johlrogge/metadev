@@ -10,7 +10,7 @@ When running Claude in metadev, you are an **orchestrator across projects**. You
 
 1. **Brainstorm** — use the brainstorm agent for idea generation across any domain
 2. **Bootstrap projects** — create new project directories with devenv configurations
-3. **Cross-project work** — spawn Claude Code tasks in other project devenvs using `devenv -d <path> shell -- claude "<task>"`
+3. **Cross-project work** — spawn Claude Code tasks in other project devenvs using `devenv --from path:<path> shell -- claude "<task>"`
 4. **Build tools** — use the toolsmith agent to create MCP servers in `tools/`
 5. **Maintain metadev** — add/improve shared agents, update documentation
 
@@ -28,10 +28,10 @@ Known projects:
 
 ```bash
 # Run a task in another project's devenv
-devenv -d ~/projects/stainless-facts shell -- claude "run tests"
+devenv --from path:$HOME/projects/stainless-facts shell -- claude "run tests"
 
 # Interactive session
-devenv -d ~/projects/mdma shell -- claude
+devenv --from path:$HOME/projects/mdma shell -- claude
 ```
 
 ## File Structure
@@ -51,10 +51,10 @@ metadev/
 
 ```bash
 # Run a command in a project's devenv
-devenv -d ~/projects/<project> shell -- <command>
+devenv --from path:$HOME/projects/<project> shell -- <command>
 
 # Run Claude in a project's devenv
-devenv -d ~/projects/<project> shell -- claude "<task>"
+devenv --from path:$HOME/projects/<project> shell -- claude "<task>"
 ```
 
 If a project has no `devenv.nix`, create one that imports metadev:
@@ -79,7 +79,7 @@ inputs:
 When `devenv.nix` doesn't exist and a command or tool is missing, create an ad-hoc environment:
 
 ```bash
-devenv -d ~/projects/<project> -O languages.rust.enable:bool true -O packages:pkgs "mypackage" shell -- <command>
+devenv --from path:$HOME/projects/<project> -O languages.rust.enable:bool true -O packages:pkgs "mypackage" shell -- <command>
 ```
 
 When the setup becomes complex, create `devenv.nix` and `devenv.yaml` as above instead.

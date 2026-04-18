@@ -63,10 +63,10 @@ From the metadev shell, run Claude Code in another project's devenv:
 
 ```bash
 # Run claude in another project's environment
-devenv -d ~/projects/stainless-facts shell -- claude "run tests"
+devenv --from path:$HOME/projects/stainless-facts shell -- claude "run tests"
 
 # Interactive session in another project
-devenv -d ~/projects/mdma shell -- claude
+devenv --from path:$HOME/projects/mdma shell -- claude
 ```
 
 ## Bootstrapping a New Project

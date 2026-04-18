@@ -1152,7 +1152,7 @@ in
         Ignore these (they're legitimate Bash, not MCP gaps): diagnostic echoes (`echo
         "EXIT: $?"`), one-off utilities (`sort`, `python3 -m json.tool`), generic
         tools already covered by built-ins (`grep`, `find`), and commands the
-        operator deliberately runs (`devenv -d <path> shell ...` bootstraps).
+        operator deliberately runs (`devenv --from path:<path> shell ...` bootstraps).
 
         **Action.** For each MCP gap found, offer to file a feature request against
         metadev:
