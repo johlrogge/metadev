@@ -32,14 +32,14 @@ On shell entry you'll see available commands and a list of your projects.
 | documenter | sonnet | README maintenance, polymorphic via project skills |
 | helix | opus | Helix keymap expert — advises on TUI keymap design using Helix/Kakoune conventions |
 | metadev | sonnet | Metadev project guide — installs skills, checks workspace docs, detects outdated conventions |
-| polylith | sonnet | Polylith architecture expert — design, scaffold, analyse, and migrate Rust/Cargo projects (cargo-polylith 0.11.1) |
+| polylith | sonnet | Polylith architecture expert — design, scaffold, analyse, and migrate Rust/Cargo projects (cargo-polylith 0.11.2) |
 | product-owner | opus | Product ownership and strategic guidance — scope, prioritise, and deliver continuous value |
 | release-manager | sonnet | Git flow lifecycle — features, releases, hotfixes. Never pushes. |
 | toolsmith | sonnet | Creates Babashka MCP tool servers for permission-free agent access |
 
 All agents operate within a strict named-tool boundary. No agent has a Bash escape hatch.
 
-The polylith agent uses the `cargo-polylith` MCP server (0.11.1), which exposes read tools (`polylith_info`, `polylith_deps`, `polylith_check`, `polylith_status`) and write tools including `polylith_bump` (workspace version bumping) and `polylith_migrate_package_meta` (moving `[workspace.package]` metadata from `Polylith.toml` to root `Cargo.toml`).
+The polylith agent uses the `cargo-polylith` MCP server (0.11.2), which exposes read tools (`polylith_info`, `polylith_deps`, `polylith_check`, `polylith_status`) and write tools including `polylith_bump` (workspace version bumping) and `polylith_migrate_package_meta` (moving `[workspace.package]` metadata from `Polylith.toml` to root `Cargo.toml`).
 
 ## Importing into a Project
 
