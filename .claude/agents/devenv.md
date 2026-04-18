@@ -1,1 +1,1 @@
-/nix/store/5ykp21wvmhcy81w07db7y9qgz87h0dgl-claude-agents-devenv.md
+/nix/store/0pcnb058h1warrx2cwf5ija20lrb1snj-claude-agents-devenv.md
