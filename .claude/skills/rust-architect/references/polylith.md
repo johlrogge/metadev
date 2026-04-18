@@ -272,6 +272,8 @@ cargo polylith check --profile <name>                     # validate as if profi
 
 `profile migrate` reads root `[workspace.dependencies]` interface deps, writes `profiles/dev.profile` with those selections, regenerates the root `Cargo.toml` from the dev profile, and strips `{ workspace = true }` from brick `Cargo.toml`s so they are self-contained.
 
+Since 0.14.0, a `.profile` file may also carry `[profile.*]` sections (e.g. `[profile.release]`). `change-profile` copies them into the generated root `Cargo.toml`, so per-profile compile settings (opt-level, lto, codegen-units, panic behaviour) travel with the profile.
+
 ## Project Cargo.toml Structure (0.9.1+)
 
 Projects are plain bin crates — no `[workspace]` section. They live under `projects/` and are members of the profile workspace (not the root workspace after `profile migrate`).
