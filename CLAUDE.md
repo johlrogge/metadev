@@ -101,6 +101,17 @@ All code changes in metadev **must** follow git flow. Never commit directly to `
 
 See `RELEASING.md` for the full release checklist and agent sequence.
 
+## Tool Usage Policy
+
+**Always prefer MCP tools over Bash.** metadev provides MCP servers (`git-read`, `git-write`, `gh-issues`, `gh-ci`, `gh-repo`, `rust-codebase`, `just`, `devenv`, `cargo-polylith`, `adr`, `ssh`, `mcp-test`) covering most operations. Use them first.
+
+When no MCP covers the operation:
+1. State in one sentence why you're using Bash (e.g. "no MCP tool for `git ls-remote`").
+2. Consider whether the gap is worth a feature request against metadev (`gh_issue_create` with `repo: "johlrogge/metadev"`, `label: "enhancement"`).
+
+When an MCP tool exists but misbehaves:
+- **Do not fall back to Bash as a workaround.** File a bug (`gh_issue_create`, `label: "bug"`) and/or fix the root cause. A silent fallback hides the defect.
+
 ## GitHub Issues
 
 Use the `gh-issues` MCP server to report bugs or tasks that must persist across sessions. When you discover a problem that cannot be fixed immediately, file an issue so it survives context resets:
