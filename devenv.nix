@@ -3,12 +3,12 @@
 let
   cargo-polylith-src = builtins.fetchGit {
     url = "https://github.com/johlrogge/cargo-polylith";
-    rev = "f03a050057ec8b7c610fd1ce4635d15d98ba54af"; # tag 0.11.2
+    rev = "bb3fd5e16e190dba42deb9d2b595a2a2fba7a9df"; # tag 0.12.0
   };
 
   cargo-polylith-pkg = pkgs.rustPlatform.buildRustPackage {
     pname = "cargo-polylith";
-    version = "0.11.2";
+    version = "0.12.0";
     src = cargo-polylith-src;
     cargoLock.lockFile = cargo-polylith-src + "/Cargo.lock";
     nativeBuildInputs = [ pkgs.git ];
@@ -627,6 +627,7 @@ in
         "mcp__cargo-polylith__polylith_base_update"
         "mcp__cargo-polylith__polylith_migrate_package_meta"
         "mcp__cargo-polylith__polylith_bump"
+        "mcp__cargo-polylith__polylith_change_profile"
       ];
       prompt = ''
         You are a polylith architecture analyst for Rust/Cargo workspaces.
@@ -683,6 +684,9 @@ in
         - polylith_base_update        — toggle test-base metadata on an existing base
         - polylith_profile_new        — create a new empty profile
         - polylith_profile_add        — add or update one interface→implementation mapping in a profile
+
+        ## Profile tools (0.12.0+)
+        - polylith_change_profile — regenerate root `Cargo.toml` from a named profile; `name` is required. Use when switching the active profile (e.g. dev ↔ production) without leaving the MCP session.
 
         ## Versioning tools (0.11.0+)
         - polylith_bump — bump the workspace version in Polylith.toml; `level` (major/minor/patch) required in relaxed mode, auto-detected in strict mode; accepts `dry_run: true`
