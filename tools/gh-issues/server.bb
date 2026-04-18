@@ -31,10 +31,25 @@
 (defn gh-issue-read [number repo]
   (when (str/blank? (str number))
     (throw (ex-info "number is required" {})))
-  (let [view-args (cond-> ["issue" "view" (str number) "--comments"]
-                    (not (str/blank? repo)) (into ["--repo" repo]))
-        result    (apply run-gh view-args)]
-    (format-result result)))
+  (let [args (cond-> ["issue" "view" (str number)
+                      "--json" "number,title,state,author,labels,body,comments"]
+               (not (str/blank? repo)) (into ["--repo" repo]))
+        {:keys [ok output] :as r} (apply run-gh args)]
+    (if ok
+      (let [{:keys [number title state author labels body comments]}
+            (json/parse-string output true)
+            header (str "#" number " [" state "] " title "\n"
+                        "by @" (:login author)
+                        (when (seq labels)
+                          (str "  labels: " (str/join ", " (map :name labels)))))
+            comments-str (when (seq comments)
+                           (str "\n\n--- Comments ---\n"
+                                (str/join "\n\n"
+                                          (for [c comments]
+                                            (str "@" (:login (:author c)) " — " (:createdAt c) "\n"
+                                                 (:body c))))))]
+        (str header "\n\n" body comments-str))
+      (format-result r))))
 
 (defn gh-issue-create [title body label repo]
   (when (str/blank? title)

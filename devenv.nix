@@ -3,12 +3,12 @@
 let
   cargo-polylith-src = builtins.fetchGit {
     url = "https://github.com/johlrogge/cargo-polylith";
-    rev = "8644c8b8de7ac3ef71352e09892a179c381da54b"; # tag 0.11.0
+    rev = "a66b7fe1588cc219d85a4314b57cb13658b06224"; # tag 0.11.1
   };
 
   cargo-polylith-pkg = pkgs.rustPlatform.buildRustPackage {
     pname = "cargo-polylith";
-    version = "0.11.0";
+    version = "0.11.1";
     src = cargo-polylith-src;
     cargoLock.lockFile = cargo-polylith-src + "/Cargo.lock";
     nativeBuildInputs = [ pkgs.git ];
@@ -1056,15 +1056,68 @@ in
            tag_prefix = "v"
            ```
 
-        ### Agent permissions (.claude/settings.local.json)
-        MCP tool permissions are now generated automatically by the metadev devenv module into
-        .claude/settings.local.json (a nix store symlink, regenerated on devenv shell).
+        ### .claude/settings.local.json drift and MCP coverage
 
-        If the file is missing or outdated, run: devenv shell
-        If a project needs additional permissions beyond the metadev set, add them to the
-        project's devenv.nix by overriding files.".claude/settings.local.json".json.
+        MCP tool permissions for metadev's 14 servers (adr, cargo-polylith, devenv,
+        gh-ci, gh-issues, gh-repo, git-flow, git-flow-release, git-read, git-write,
+        just, mcp-test, rust-codebase, ssh) are declared by the metadev devenv module
+        as broad `mcp__<server>__*` patterns written to `.claude/settings.local.json`
+        (a nix-store symlink, regenerated on `devenv shell`).
 
-        Do NOT offer to write permissions manually — the module handles this.
+        **Drift detection.** The file is expected to be a symlink into /nix/store. If
+        it is a regular file, Claude Code has overwritten it with accumulated
+        fine-grained approvals (e.g. `mcp__git-read__git_status`, `mcp__gh-issues__gh_issue_read`).
+        Signs of drift:
+        1. `.claude/settings.local.json` is a regular file, not a nix-store symlink
+        2. It contains entries like `mcp__<metadev-server>__<specific_tool>` where
+           `<metadev-server>` is one of the 14 listed above (subsumed by the broad
+           `mcp__<server>__*` pattern)
+        3. `enabledMcpjsonServers` is empty, missing, or lists only `mcp.devenv.sh`
+           instead of the 14 metadev servers
+
+        **Action if drift is detected.** Offer to clean the file. The cleaned file should:
+        - Include the 14 broad `mcp__<server>__*` patterns
+        - Drop every narrow `mcp__<metadev-server>__<tool>` entry subsumed by the above
+        - Keep every `Bash(...)`, `Read(...)`, `WebFetch(...)`, `WebSearch` entry —
+          those are project-specific and not covered by the devenv module
+        - Keep any `mcp__<other-server>__*` entry from servers not in the metadev set
+        - Set `enableAllProjectMcpServers: true` and `enabledMcpjsonServers` to the 14
+          metadev server names
+
+        You cannot write files directly, so either:
+        - offer the cleaned JSON as a diff the user applies, or
+        - delegate the write to code-minion with a precise spec.
+
+        **MCP-coverage analysis of the remaining Bash entries.** After cleanup, review
+        the kept `Bash(...)` entries and flag patterns that look like missing MCP
+        coverage. Examples of gaps that have shown up in practice:
+        - `Bash(git ls-remote:*)`, `Bash(git stash:*)` beyond push/pop — **git-read/git-write** gap
+        - `Bash(devenv shell:*)`, `Bash(devenv tasks:*)`, `Bash(devenv update:*)` —
+          **devenv** MCP only has `search_packages`/`search_options`
+        - `Bash(adr config:*)`, `Bash(adr help:*)` — **adr** MCP introspection gap
+        - `Bash(nix eval:*)`, `Bash(nix-prefetch-url:*)`, `Bash(nix-store ...)` —
+          **no nix MCP** exists; candidate for a new server
+
+        Ignore these (they're legitimate Bash, not MCP gaps): diagnostic echoes (`echo
+        "EXIT: $?"`), one-off utilities (`sort`, `python3 -m json.tool`), generic
+        tools already covered by built-ins (`grep`, `find`), and commands the
+        operator deliberately runs (`devenv -d <path> shell ...` bootstraps).
+
+        **Action.** For each MCP gap found, offer to file a feature request against
+        metadev:
+
+        ```
+        gh_issue_create(
+          repo: "johlrogge/metadev",
+          label: "enhancement",
+          title: "<server> MCP: add <capability>",
+          body: "Observed in <project> — agents repeatedly need `<bash pattern>`
+                 and fall back to Bash because no MCP tool covers it. Suggested
+                 tool: <name>, inputs: <sketch>."
+        )
+        ```
+
+        Do NOT file issues without explicit user confirmation.
 
         ### Startup behaviour
         When invoked proactively, run through all checks in order:
