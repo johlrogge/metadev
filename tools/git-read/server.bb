@@ -26,8 +26,11 @@
           (apply run-git path "diff" (clojure.string/split args-str #"\s+"))))
 
       "git_log"
-      (let [n (:n arguments 10)]
-        (run-git path "log" "--oneline" (str "-" n)))
+      (let [n   (:n arguments 10)
+            ref (:ref arguments)]
+        (if (clojure.string/blank? ref)
+          (run-git path "log" "--oneline" (str "-" n))
+          (run-git path "log" "--oneline" (str "-" n) ref)))
 
       "git_show"
       (let [ref (:ref arguments)]
@@ -36,7 +39,9 @@
         (run-git path "show" ref))
 
       "git_branch"
-      (run-git path "branch")
+      (if (:all arguments)
+        (run-git path "branch" "-a")
+        (run-git path "branch"))
 
       (str "Unknown tool: " name))))
 
@@ -56,12 +61,14 @@
                                        :description "Optional git diff arguments, e.g. '--staged', 'HEAD~1', 'main..feature'"}}
                   :required ["path"]}}
    {:name "git_log"
-    :description "Show recent commit log in oneline format."
+    :description "Show recent commit log in oneline format. Pass 'ref' to inspect a specific branch, tag, or range (e.g. 'develop', 'main..feature/x'); defaults to HEAD."
     :inputSchema {:type "object"
                   :properties {"path" {:type "string"
                                        :description "Absolute path to the git repository"}
                                "n" {:type "number"
-                                    :description "Number of commits to show (default: 10)"}}
+                                    :description "Number of commits to show (default: 10)"}
+                               "ref" {:type "string"
+                                      :description "Branch, tag, commit, or range to log. Defaults to HEAD."}}
                   :required ["path"]}}
    {:name "git_show"
     :description "Show a commit or object (patch + metadata). Pass a ref like 'HEAD', a commit hash, or a tag."
@@ -72,10 +79,12 @@
                                       :description "Git ref to show, e.g. 'HEAD', a commit hash, or tag"}}
                   :required ["path" "ref"]}}
    {:name "git_branch"
-    :description "List all local branches in a git repository."
+    :description "List branches in a git repository. Local branches by default; pass all=true to include remote-tracking branches."
     :inputSchema {:type "object"
                   :properties {"path" {:type "string"
-                                       :description "Absolute path to the git repository"}}
+                                       :description "Absolute path to the git repository"}
+                               "all"  {:type "boolean"
+                                       :description "Include remote-tracking branches (git branch -a). Defaults to false."}}
                   :required ["path"]}}])
 
 (loop []

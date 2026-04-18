@@ -3,14 +3,15 @@
 let
   cargo-polylith-src = builtins.fetchGit {
     url = "https://github.com/johlrogge/cargo-polylith";
-    rev = "12f7301999c6df0362328533f396160122f5cd14"; # tag 0.10.1
+    rev = "a66b7fe1588cc219d85a4314b57cb13658b06224"; # tag 0.11.1
   };
 
   cargo-polylith-pkg = pkgs.rustPlatform.buildRustPackage {
     pname = "cargo-polylith";
-    version = "0.10.1";
+    version = "0.11.1";
     src = cargo-polylith-src;
     cargoLock.lockFile = cargo-polylith-src + "/Cargo.lock";
+    nativeBuildInputs = [ pkgs.git ];
   };
 
   metaenvSkill = ''
@@ -607,6 +608,7 @@ in
         "mcp__cargo-polylith__polylith_profile_add"
         "mcp__cargo-polylith__polylith_base_update"
         "mcp__cargo-polylith__polylith_migrate_package_meta"
+        "mcp__cargo-polylith__polylith_bump"
       ];
       prompt = ''
         You are a polylith architecture analyst for Rust/Cargo workspaces.
@@ -663,6 +665,9 @@ in
         - polylith_base_update        — toggle test-base metadata on an existing base
         - polylith_profile_new        — create a new empty profile
         - polylith_profile_add        — add or update one interface→implementation mapping in a profile
+
+        ## Versioning tools (0.11.0+)
+        - polylith_bump — bump the workspace version in Polylith.toml; `level` (major/minor/patch) required in relaxed mode, auto-detected in strict mode; accepts `dry_run: true`
 
         ## Migration tools
         - polylith_migrate_package_meta — migrate [workspace.package] metadata from Polylith.toml to root Cargo.toml [package] (0.10.0+)
@@ -1006,15 +1011,113 @@ in
            the old section from Polylith.toml)
         5. Report the result
 
-        ### Agent permissions (.claude/settings.local.json)
-        MCP tool permissions are now generated automatically by the metadev devenv module into
-        .claude/settings.local.json (a nix store symlink, regenerated on devenv shell).
+        **cargo-polylith 0.11.0 — versioning and profile model changes**
+        cargo-polylith 0.11.0 introduces a versioning model (`[versioning]` in Polylith.toml),
+        the `bump` command, and replaces the symlink-based profile model with `change-profile`
+        generation (root Cargo.toml IS the active workspace).
 
-        If the file is missing or outdated, run: devenv shell
-        If a project needs additional permissions beyond the metadev set, add them to the
-        project's devenv.nix by overriding files.".claude/settings.local.json".json.
+        Detection: check `Polylith.toml` for a missing `[versioning]` section, or check for
+        stale `profiles/<name>/` subdirectories containing symlinks (pre-0.9.0 layout).
 
-        Do NOT offer to write permissions manually — the module handles this.
+        What changed:
+        1. **Profile model**: `profiles/<name>/` subdirectories with symlinks are gone. The root
+           `Cargo.toml` is now generated directly from the active profile. `profile migrate`
+           no longer creates symlink directories. `cargo polylith change-profile <name>` writes
+           the root `Cargo.toml` from a named profile. After migration, run `cargo` directly.
+        2. **`cargo polylith cargo`**: still works for temporarily building under a different
+           profile without permanently switching. Defaults to `dev` profile.
+        3. **Versioning policy**: `Polylith.toml` gains a `[versioning]` section with `policy`
+           (relaxed or strict) and `version`. `cargo polylith init` writes relaxed by default.
+        4. **`cargo polylith bump`**: in relaxed mode, requires a level arg (major/minor/patch).
+           In strict mode, auto-detects by analyzing public API changes with `syn`.
+        5. **New check warning**: `not-workspace-version` — brick not using `version.workspace = true`
+           in a relaxed-mode workspace.
+        6. **New MCP tool**: `polylith_bump` — exposes bump to agents; `level` required in
+           relaxed mode, optional in strict; accepts `dry_run: true`.
+
+        Action for projects with stale symlink-based profiles:
+        1. Remove `profiles/<name>/` directories containing symlinks and generated Cargo.toml
+        2. Run `cargo polylith profile migrate` (or `change-profile dev`) to regenerate root Cargo.toml
+        3. Update CI scripts using `cargo polylith profile build` (deprecated) to use
+           `cargo polylith cargo --profile <name> build` or `cargo polylith change-profile <name>`
+
+        Action for projects wanting versioning:
+        1. Add `[versioning]` to `Polylith.toml`:
+           ```toml
+           [versioning]
+           policy = "relaxed"
+           version = "0.1.0"
+           ```
+        2. For projects using git-flow with strict versioning, also set `tag_prefix`:
+           ```toml
+           [versioning]
+           policy = "strict"
+           version = "0.1.0"
+           tag_prefix = "v"
+           ```
+
+        ### .claude/settings.local.json drift and MCP coverage
+
+        MCP tool permissions for metadev's 14 servers (adr, cargo-polylith, devenv,
+        gh-ci, gh-issues, gh-repo, git-flow, git-flow-release, git-read, git-write,
+        just, mcp-test, rust-codebase, ssh) are declared by the metadev devenv module
+        as broad `mcp__<server>__*` patterns written to `.claude/settings.local.json`
+        (a nix-store symlink, regenerated on `devenv shell`).
+
+        **Drift detection.** The file is expected to be a symlink into /nix/store. If
+        it is a regular file, Claude Code has overwritten it with accumulated
+        fine-grained approvals (e.g. `mcp__git-read__git_status`, `mcp__gh-issues__gh_issue_read`).
+        Signs of drift:
+        1. `.claude/settings.local.json` is a regular file, not a nix-store symlink
+        2. It contains entries like `mcp__<metadev-server>__<specific_tool>` where
+           `<metadev-server>` is one of the 14 listed above (subsumed by the broad
+           `mcp__<server>__*` pattern)
+        3. `enabledMcpjsonServers` is empty, missing, or lists only `mcp.devenv.sh`
+           instead of the 14 metadev servers
+
+        **Action if drift is detected.** Offer to clean the file. The cleaned file should:
+        - Include the 14 broad `mcp__<server>__*` patterns
+        - Drop every narrow `mcp__<metadev-server>__<tool>` entry subsumed by the above
+        - Keep every `Bash(...)`, `Read(...)`, `WebFetch(...)`, `WebSearch` entry —
+          those are project-specific and not covered by the devenv module
+        - Keep any `mcp__<other-server>__*` entry from servers not in the metadev set
+        - Set `enableAllProjectMcpServers: true` and `enabledMcpjsonServers` to the 14
+          metadev server names
+
+        You cannot write files directly, so either:
+        - offer the cleaned JSON as a diff the user applies, or
+        - delegate the write to code-minion with a precise spec.
+
+        **MCP-coverage analysis of the remaining Bash entries.** After cleanup, review
+        the kept `Bash(...)` entries and flag patterns that look like missing MCP
+        coverage. Examples of gaps that have shown up in practice:
+        - `Bash(git ls-remote:*)`, `Bash(git stash:*)` beyond push/pop — **git-read/git-write** gap
+        - `Bash(devenv shell:*)`, `Bash(devenv tasks:*)`, `Bash(devenv update:*)` —
+          **devenv** MCP only has `search_packages`/`search_options`
+        - `Bash(adr config:*)`, `Bash(adr help:*)` — **adr** MCP introspection gap
+        - `Bash(nix eval:*)`, `Bash(nix-prefetch-url:*)`, `Bash(nix-store ...)` —
+          **no nix MCP** exists; candidate for a new server
+
+        Ignore these (they're legitimate Bash, not MCP gaps): diagnostic echoes (`echo
+        "EXIT: $?"`), one-off utilities (`sort`, `python3 -m json.tool`), generic
+        tools already covered by built-ins (`grep`, `find`), and commands the
+        operator deliberately runs (`devenv -d <path> shell ...` bootstraps).
+
+        **Action.** For each MCP gap found, offer to file a feature request against
+        metadev:
+
+        ```
+        gh_issue_create(
+          repo: "johlrogge/metadev",
+          label: "enhancement",
+          title: "<server> MCP: add <capability>",
+          body: "Observed in <project> — agents repeatedly need `<bash pattern>`
+                 and fall back to Bash because no MCP tool covers it. Suggested
+                 tool: <name>, inputs: <sketch>."
+        )
+        ```
+
+        Do NOT file issues without explicit user confirmation.
 
         ### Startup behaviour
         When invoked proactively, run through all checks in order:
