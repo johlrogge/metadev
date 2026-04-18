@@ -3,12 +3,12 @@
 let
   cargo-polylith-src = builtins.fetchGit {
     url = "https://github.com/johlrogge/cargo-polylith";
-    rev = "a66b7fe1588cc219d85a4314b57cb13658b06224"; # tag 0.11.1
+    rev = "f03a050057ec8b7c610fd1ce4635d15d98ba54af"; # tag 0.11.2
   };
 
   cargo-polylith-pkg = pkgs.rustPlatform.buildRustPackage {
     pname = "cargo-polylith";
-    version = "0.11.1";
+    version = "0.11.2";
     src = cargo-polylith-src;
     cargoLock.lockFile = cargo-polylith-src + "/Cargo.lock";
     nativeBuildInputs = [ pkgs.git ];
@@ -1006,10 +1006,18 @@ in
            of Polylith.toml. Fields like version, edition, authors, license, and repository
            need to move to `[package]` in root Cargo.toml.
         3. Show what fields will be migrated and where they will go
-        4. After user confirmation, invoke the `polylith_migrate_package_meta` MCP tool
-           (no parameters — it reads both files, merges without overwriting, and removes
-           the old section from Polylith.toml)
-        5. Report the result
+        4. **Confirm Polylith.toml values are correct before migration.** In
+           cargo-polylith 0.11.2+, `polylith_migrate_package_meta` treats Polylith.toml
+           `[workspace.package]` as the source of truth: every declared field
+           *overwrites* the matching field in root `Cargo.toml`; undeclared fields
+           are left alone. (Pre-0.11.2 the tool merged without overwriting, which
+           silently discarded real Polylith.toml values when root had placeholders
+           like `version = "0.0.0"`. That was data-loss bug johlrogge/cargo-polylith#2.)
+           Show the user the Polylith.toml values that will overwrite and ask for
+           explicit confirmation if any root Cargo.toml field would be replaced.
+        5. After confirmation, invoke `polylith_migrate_package_meta` (no parameters
+           — it reads both files and removes the migrated section from Polylith.toml).
+        6. Report the result.
 
         **cargo-polylith 0.11.0 — versioning and profile model changes**
         cargo-polylith 0.11.0 introduces a versioning model (`[versioning]` in Polylith.toml),
@@ -1055,6 +1063,49 @@ in
            version = "0.1.0"
            tag_prefix = "v"
            ```
+
+        **Tool Usage Policy in CLAUDE.md (MCP-first directive)**
+        Projects that use metadev's shared agents and MCP servers should instruct
+        their Claude sessions to prefer MCP tools over Bash, explain the gap when
+        falling back to Bash, and never silently work around a misbehaving MCP. This
+        prevents hidden tool-routing bugs (like the git-read `ref` gap that we only
+        caught after it produced silently-wrong results across a whole session).
+
+        Detection: read the project's `CLAUDE.md`. If there is no `## Tool Usage
+        Policy` section (or any equivalent guidance that names MCP-over-Bash as a
+        rule), offer to add one.
+
+        Action:
+        1. Read `CLAUDE.md`
+        2. Show the user the following block and where you propose to insert it
+           (typically after a `## Git Flow` / `## Workflow` section, before
+           project-specific `## Conventions`):
+
+           ```markdown
+           ## Tool Usage Policy
+
+           **Always prefer MCP tools over Bash.** This project inherits MCP servers
+           from metadev (`git-read`, `git-write`, `gh-issues`, `gh-ci`, `gh-repo`,
+           `rust-codebase`, `just`, `devenv`, `cargo-polylith`, `adr`, `ssh`,
+           `mcp-test`) — plus any project-specific servers declared in its
+           `devenv.nix`. Use them first.
+
+           When no MCP covers the operation:
+           1. State in one sentence why you're using Bash (e.g. "no MCP tool for
+              `git ls-remote`").
+           2. Consider whether the gap is worth a feature request against metadev
+              (`gh_issue_create` with `repo: "johlrogge/metadev"`,
+              `label: "enhancement"`) or the project's own MCP server.
+
+           When an MCP tool exists but misbehaves:
+           - **Do not fall back to Bash as a workaround.** File a bug and/or fix
+             the root cause. A silent fallback hides the defect.
+           ```
+
+        3. If the project's CLAUDE.md already has a `## Tool Usage Policy` section
+           but the text drifts from this template, point out the differences and
+           offer to align it — do not auto-edit.
+        4. Write only after explicit user confirmation.
 
         ### .claude/settings.local.json drift and MCP coverage
 
