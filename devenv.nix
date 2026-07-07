@@ -156,7 +156,7 @@ in
   claude.code.agents = {
     brainstorm = lib.mkDefault {
       description = "Brainstorming facilitator. Draws ideas out of you through questions and reflections, builds on your ideas as suggestions, never acts without your confirmation.";
-      model = "fable";
+      model = "opus";
       proactive = false;
       tools = [ "Read" "Grep" "Glob" "WebSearch" "mcp__adr__adr_list" "mcp__adr__adr_read" "mcp__adr__adr_search" "mcp__adr__adr_new" ];
       prompt = ''
@@ -304,7 +304,7 @@ in
 
     product-owner = lib.mkDefault {
       description = "Product ownership and strategic guidance. Keeps projects focused on delivering continuous value. Reads VISION.md and ROADMAP.md for project context.";
-      model = "fable";
+      model = "opus";
       proactive = false;
       tools = [ "Read" "Grep" "Glob" "Skill" ];
       prompt = ''
@@ -479,7 +479,7 @@ in
 
     architect = lib.mkDefault {
       description = "Software architect. Reviews code, advises on design. Loads language-specific skills on demand — Rust built-in, others via project skills. Read-only — reviews but does not write code.";
-      model = "fable";
+      model = "opus";
       proactive = true;
       tools = [
         "Read" "Grep" "Glob" "Skill"
