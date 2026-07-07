@@ -1488,7 +1488,40 @@ in
       "devenv"
     ];
   in {
-    permissions.allow = map (s: "mcp__${s}__*") mcpServers;
+    permissions.allow = map (s: "mcp__${s}__*") mcpServers ++ [
+      "Bash(adr config:*)"
+      "Bash(adr help:*)"
+      "Bash(bb:*)"
+      "Bash(cargo check:*)"
+      "Bash(cargo polylith:*)"
+      "Bash(cargo-polylith polylith:*)"
+      "Bash(devenv mcp:*)"
+      "Bash(devenv shell:*)"
+      "Bash(devenv tasks:*)"
+      "Bash(devenv update:*)"
+      "Bash(gh issue:*)"
+      "Bash(git ls-remote:*)"
+      "Bash(git push:*)"
+      "Bash(git stash:*)"
+      "Bash(grep:*)"
+      "Bash(nix eval:*)"
+      "Bash(nix-prefetch-url:*)"
+      "Bash(python3 -m json.tool)"
+      "Bash(sort -t/ -k3 -V)"
+      "Read(//home/johlrogge/projects/ctx/**)"
+      "Read(//home/johlrogge/projects/mdma/**)"
+      "Read(//home/johlrogge/projects/modular-digital-music-array/**)"
+      "Read(//home/johlrogge/projects/presemble/**)"
+      "Read(//home/johlrogge/projects/stainless-facts/**)"
+      "Read(//nix/store/**)"
+      "Read(//tmp/**)"
+      "WebFetch(domain:cljdoc.org)"
+      "WebFetch(domain:devenv.sh)"
+      "WebFetch(domain:docs.helix-editor.com)"
+      "WebFetch(domain:kakoune.org)"
+      "WebFetch(domain:polylith.gitbook.io)"
+      "WebSearch"
+    ];
     enableAllProjectMcpServers = true;
     enabledMcpjsonServers = mcpServers;
     hooks.PreToolUse = [
