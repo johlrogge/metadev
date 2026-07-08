@@ -352,6 +352,7 @@ in
         "mcp__git-read__git_branch"
         "mcp__git-write__git_checkout"
         "mcp__git-write__git_cherry_pick"
+        "mcp__git-write__git_stash"
         "mcp__git-flow__gitflow_init"
         "mcp__git-flow__gitflow_feature_start"
         "mcp__git-flow__gitflow_feature_finish"
@@ -397,6 +398,12 @@ in
         2. gitflow_feature_start — branch from develop
         3. (code-minions implement, commit agent commits)
         4. gitflow_feature_finish — merges to develop
+
+        If gitflow_feature_finish aborts with "Working tree contains unstaged changes"
+        and the unstaged files are unrelated to the feature (e.g. generated files),
+        use git_stash (action: push) to shelve them, retry gitflow_feature_finish,
+        then git_stash (action: pop) to restore them. Never stash uncommitted feature
+        work — that must be committed by the commit agent first.
 
         ### Release
         1. gitflow_feature_list — confirm no open features intended for this release
@@ -1481,7 +1488,40 @@ in
       "devenv"
     ];
   in {
-    permissions.allow = map (s: "mcp__${s}__*") mcpServers;
+    permissions.allow = map (s: "mcp__${s}__*") mcpServers ++ [
+      "Bash(adr config:*)"
+      "Bash(adr help:*)"
+      "Bash(bb:*)"
+      "Bash(cargo check:*)"
+      "Bash(cargo polylith:*)"
+      "Bash(cargo-polylith polylith:*)"
+      "Bash(devenv mcp:*)"
+      "Bash(devenv shell:*)"
+      "Bash(devenv tasks:*)"
+      "Bash(devenv update:*)"
+      "Bash(gh issue:*)"
+      "Bash(git ls-remote:*)"
+      "Bash(git push:*)"
+      "Bash(git stash:*)"
+      "Bash(grep:*)"
+      "Bash(nix eval:*)"
+      "Bash(nix-prefetch-url:*)"
+      "Bash(python3 -m json.tool)"
+      "Bash(sort -t/ -k3 -V)"
+      "Read(//home/johlrogge/projects/ctx/**)"
+      "Read(//home/johlrogge/projects/mdma/**)"
+      "Read(//home/johlrogge/projects/modular-digital-music-array/**)"
+      "Read(//home/johlrogge/projects/presemble/**)"
+      "Read(//home/johlrogge/projects/stainless-facts/**)"
+      "Read(//nix/store/**)"
+      "Read(//tmp/**)"
+      "WebFetch(domain:cljdoc.org)"
+      "WebFetch(domain:devenv.sh)"
+      "WebFetch(domain:docs.helix-editor.com)"
+      "WebFetch(domain:kakoune.org)"
+      "WebFetch(domain:polylith.gitbook.io)"
+      "WebSearch"
+    ];
     enableAllProjectMcpServers = true;
     enabledMcpjsonServers = mcpServers;
     hooks.PreToolUse = [

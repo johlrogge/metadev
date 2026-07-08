@@ -183,6 +183,8 @@ files.".claude/settings.local.json".json = {
 
 If the file is missing or stale, re-enter the shell (`devenv shell`) to regenerate it.
 
+Because the file is a nix-store symlink, permissions granted interactively during a session (accepting a tool-use prompt) do not persist — the next `devenv shell` regenerates the symlink and drops them. Durable approvals belong in `devenv.nix`: add to the shared list here for all importing projects, or override `files.".claude/settings.local.json"` in your project as shown above.
+
 ## Philosophy
 
 **"Don't ask for permission, ask for a tool."**
