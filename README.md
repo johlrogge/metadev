@@ -25,7 +25,7 @@ On shell entry you'll see available commands and a list of your projects.
 |-------|-------|---------|
 | architect | opus | Software architect — reviews code, advises on design, loads language skills on demand. Read-only. |
 | brainstorm | opus | Thinking partner — draws ideas out through questions, reflection, and structured techniques |
-| code-minion | sonnet | Implementation specialist — writes code, implements planned features, writes tests |
+| code-minion | opus | Implementation specialist — writes code, implements planned features, writes tests |
 | commit | haiku | Git commits with conventional commit format, hook-aware |
 | devenv | sonnet | Environment guardian — audits projects for compliance with the devenv-as-single-source-of-truth principle. Read-only. |
 | devops | sonnet | Deployment agent — builds, deploys, and operates project infrastructure via SSH MCP tools. No Bash. |
