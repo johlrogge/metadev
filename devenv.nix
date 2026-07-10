@@ -745,7 +745,7 @@ in
 
     code-minion = lib.mkDefault {
       description = "Implementation specialist. Writes code, implements planned features, writes tests. Follows the architect's design. Multiple minions can run in parallel on different tasks.";
-      model = "sonnet";
+      model = "opus";
       proactive = false;
       permissionMode = "acceptEdits";
       tools = [
