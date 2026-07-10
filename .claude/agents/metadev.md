@@ -1,1 +1,0 @@
-/nix/store/jd7ykqsz5v9j7k4v7ikvnqc0x1kpl5f1-claude-agents-metadev.md
