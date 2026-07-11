@@ -1,1 +1,0 @@
-/nix/store/imnz7bsby14snjc8877qrzspb140x9vr-claude-agents-polylith.md

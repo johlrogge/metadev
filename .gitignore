@@ -2,3 +2,10 @@
 devenv.local.nix
 .mcp.json
 .claude/settings.local.json
+
+# devenv-generated Claude Code artifacts — source of truth is devenv.nix
+# (claude.code.agents / claude.code.commands). Regenerated on `devenv shell`.
+.claude/agents/
+.claude/commands/init.md
+.claude/commands/migrate.md
+.claude/settings.json
