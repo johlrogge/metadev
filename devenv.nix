@@ -157,7 +157,6 @@ in
     brainstorm = lib.mkDefault {
       description = "Brainstorming facilitator. Draws ideas out of you through questions and reflections, builds on your ideas as suggestions, never acts without your confirmation.";
       model = "opus";
-      proactive = false;
       tools = [ "Read" "Grep" "Glob" "WebSearch" "mcp__adr__adr_list" "mcp__adr__adr_read" "mcp__adr__adr_search" "mcp__adr__adr_new" ];
       prompt = ''
         You are a brainstorming facilitator. Your job is to draw ideas out of the person you are talking to,
@@ -229,7 +228,6 @@ in
     commit = lib.mkDefault {
       description = "Commit agent. Runs git add and git commit. Never pushes.";
       model = "haiku";
-      proactive = false;
       tools = [ "mcp__git-read__git_status" "mcp__git-read__git_diff" "mcp__git-write__git_add" "mcp__git-write__git_commit" "Read" "Skill" ];
       prompt = ''
         You commit code changes to git. That is your ONLY job.
@@ -256,7 +254,6 @@ in
     documenter = lib.mkDefault {
       description = "Documentation updater. Maintains READMEs by default, plus any project-specific documentation targets (site pages, user guides, changelogs) declared in a project's documenter skill.";
       model = "sonnet";
-      proactive = false;
       permissionMode = "acceptEdits";
       tools = [ "Read" "Write" "Edit" "Grep" "Glob" "Skill" ];
       prompt = ''
@@ -305,7 +302,6 @@ in
     product-owner = lib.mkDefault {
       description = "Product ownership and strategic guidance. Keeps projects focused on delivering continuous value. Reads VISION.md and ROADMAP.md for project context.";
       model = "opus";
-      proactive = false;
       tools = [ "Read" "Grep" "Glob" "Skill" ];
       prompt = ''
         ## Your Role
@@ -345,7 +341,6 @@ in
     release-manager = lib.mkDefault {
       description = "Release manager. Owns the git flow lifecycle: features, releases, hotfixes, cherry-picks. Gates releases on CI. Never pushes — that stays with the human.";
       model = "sonnet";
-      proactive = false;
       tools = [
         "mcp__git-read__git_status"
         "mcp__git-read__git_log"
@@ -436,7 +431,6 @@ in
     devops = lib.mkDefault {
       description = "Deployment agent. Builds, deploys, and operates project infrastructure on target environments. Project-specific — loads procedures from .claude/skills/devops/SKILL.md.";
       model = "sonnet";
-      proactive = false;
       permissionMode = "acceptEdits";
       tools = [
         "Read" "Write" "Edit" "Grep" "Glob" "Skill"
@@ -487,7 +481,6 @@ in
     architect = lib.mkDefault {
       description = "Software architect. Reviews code, advises on design. Loads language-specific skills on demand — Rust built-in, others via project skills. Read-only — reviews but does not write code.";
       model = "opus";
-      proactive = true;
       tools = [
         "Read" "Grep" "Glob" "Skill"
         "mcp__rust-codebase__cargo_check"
@@ -617,7 +610,6 @@ in
     polylith = lib.mkDefault {
       description = "Polylith architecture expert. Helps design, scaffold, analyse, and migrate Rust/Cargo projects to the polylith model.";
       model = "sonnet";
-      proactive = false;
       tools = [
         "Skill"
         "mcp__cargo-polylith__polylith_info"
@@ -708,7 +700,6 @@ in
     helix = lib.mkDefault {
       description = "Helix keymap expert. Advises on TUI keymap design using Helix/Kakoune conventions. Read-only — advises but does not implement.";
       model = "opus";
-      proactive = false;
       tools = [ "Read" "Grep" "Glob" "Skill" ];
       prompt = ''
         You are a deep expert in the Helix editor and Kakoune-derived modal editing conventions.
@@ -746,7 +737,6 @@ in
     code-minion = lib.mkDefault {
       description = "Implementation specialist. Writes code, implements planned features, writes tests. Follows the architect's design. Multiple minions can run in parallel on different tasks.";
       model = "opus";
-      proactive = false;
       permissionMode = "acceptEdits";
       tools = [
         "Read" "Write" "Edit" "Grep" "Glob" "Skill"
@@ -806,7 +796,6 @@ in
     metadev = lib.mkDefault {
       description = "Metadev project guide. Installs skills, checks workspace docs, reviews CLAUDE.md for quality, and detects outdated metadev conventions.";
       model = "sonnet";
-      proactive = true;
       permissionMode = "acceptEdits";
       tools = [ "Read" "Write" "Glob" "Skill" ];
       prompt = ''
@@ -869,7 +858,6 @@ in
 
         ## Workspace Documentation
 
-        On startup (when proactive), also check for foundational docs:
 
         ### VISION.md
         Read by: brainstorm agent, product-owner agent.
@@ -1200,7 +1188,6 @@ in
         Do NOT file issues without explicit user confirmation.
 
         ### Startup behaviour
-        When invoked proactively, run through all checks in order:
         1. Install any missing metadev skills (silently if all present, report if anything was installed)
         2. Check for VISION.md — mention if missing, offer brainstorm agent
         3. Check for ROADMAP.md — mention if missing, offer to scaffold
@@ -1224,7 +1211,6 @@ in
     devenv = lib.mkDefault {
       description = "devenv environment guardian. Audits projects for compliance with the devenv-as-single-source-of-truth principle. Read-only — advises but never modifies files.";
       model = "sonnet";
-      proactive = false;
       tools = [
         "Read" "Grep" "Glob" "Skill"
         "mcp__devenv__search_packages"
@@ -1328,7 +1314,6 @@ in
     toolsmith = lib.mkDefault {
       description = "Creates MCP tool servers (Babashka/Clojure) that give other agents structured, permission-free access to specific capabilities.";
       model = "sonnet";
-      proactive = false;
       permissionMode = "acceptEdits";
       tools = [
         "Read" "Write" "Edit" "Grep" "Glob"
