@@ -10,8 +10,3 @@ inputs:
     inputs:
       nixpkgs:
         follows: nixpkgs
-  ctx:
-    url: gitlab:johlrogge.rs/ctx
-    inputs:
-      nixpkgs:
-        follows: nixpkgs

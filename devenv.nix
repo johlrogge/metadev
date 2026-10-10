@@ -54,18 +54,8 @@ in
     adr-tools
     socat              # For Claude Code sandboxing
     inputs.claude-code-nix.packages.${pkgs.stdenv.hostPlatform.system}.default
-    inputs.ctx.packages.${pkgs.stdenv.hostPlatform.system}.default
     cargo-polylith-pkg
   ];
-
-  enterShell = ''
-    # ctx shell integration
-    if command -v ctx &>/dev/null; then
-      ctx shell --shell bash >/dev/null 2>&1 || true
-      [ -f "$HOME/.config/ctx/ctx.bash" ] && source "$HOME/.config/ctx/ctx.bash"
-    fi
-
-  '';
 
   claude.code.enable = true;
 
