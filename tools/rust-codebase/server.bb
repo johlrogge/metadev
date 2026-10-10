@@ -34,6 +34,20 @@
     (apply vector "cargo" "polylith" "cargo" "--profile" profile subcommand args)
     (apply vector "cargo" subcommand args)))
 
+(defn flag?
+  "Parse an MCP boolean-ish argument. Accepts true/false and \"true\"/\"false\"."
+  [v]
+  (= "true" (str/lower-case (str v))))
+
+(defn clippy-cmd
+  "Build the clippy command vector.
+   Always lints the whole workspace; all-targets? adds --all-targets so tests,
+   benches and examples are linted the way CI does."
+  [all-targets?]
+  (-> ["cargo" "clippy" "--workspace"]
+      (cond-> all-targets? (conj "--all-targets"))
+      (into ["--message-format=json" "--" "-D" "warnings"])))
+
 (defn run-cmd
   "Run a shell command in the given directory. Returns {:ok bool :out string :err string :exit int}."
   [dir & args]
@@ -100,7 +114,9 @@
 (defn cargo-check [arguments]
   (let [path    (effective-path arguments)
         profile (effective-profile arguments)
-        result  (apply run-cmd path (cargo-cmd path profile "check" "--message-format=json"))]
+        ;; --workspace: without it cargo only builds the root package, so a member
+        ;; crate that does not compile is silently skipped and check reports OK.
+        result  (apply run-cmd path (cargo-cmd path profile "check" "--workspace" "--message-format=json"))]
     (if (:ok result)
       (let [messages (parse-cargo-json-messages (:out result))
             counts   (count-diagnostic-levels messages)
@@ -121,7 +137,7 @@
 (defn cargo-clippy [arguments]
   ;; Clippy lints the whole workspace regardless of polylith profiles — bypass polylith routing.
   (let [path   (effective-path arguments)
-        result (run-cmd path "cargo" "clippy" "--workspace" "--message-format=json" "--" "-D" "warnings")]
+        result (apply run-cmd path (clippy-cmd (flag? (:all_targets arguments))))]
     (let [messages      (parse-cargo-json-messages (:out result))
           compiler-msgs (seq (keep format-diagnostic messages))
           counts        (count-diagnostic-levels messages)
@@ -170,7 +186,9 @@
 (defn cargo-test [arguments]
   (let [path    (effective-path arguments)
         profile (effective-profile arguments)
-        result  (apply run-cmd path (cargo-cmd path profile "test" "--no-fail-fast"))]
+        ;; --workspace: without it cargo tests only the root package, so member
+        ;; crates' tests never build and a broken test reports PASSED.
+        result  (apply run-cmd path (cargo-cmd path profile "test" "--workspace" "--no-fail-fast"))]
     ;; cargo test doesn't support --message-format=json in stable, so we filter text output.
     ;; Only keep: summary lines, failure names, failure details, and runner headers.
     (let [combined (str (:out result)
@@ -229,11 +247,12 @@
 (defn clippy-new-warnings [arguments]
   (let [path          (effective-path arguments)
         profile       (effective-profile arguments)
-        changed-files (git-changed-files path)
-        result        (run-cmd path "cargo" "clippy" "--workspace" "--message-format=json" "--" "-D" "warnings")]
+        changed-files (git-changed-files path)]
     (if (empty? changed-files)
+      ;; Checked before running clippy — there is nothing to filter against.
       "No changed files detected by git diff. Run on a branch with uncommitted changes."
-      (let [messages  (parse-cargo-json-messages (:out result))
+      (let [result    (apply run-cmd path (clippy-cmd (flag? (:all_targets arguments))))
+            messages  (parse-cargo-json-messages (:out result))
             new-diags (->> messages
                            (filter (fn [msg]
                                      (when (= (:reason msg) "compiler-message")
@@ -314,7 +333,7 @@
 
 (def tools
   [{:name        "cargo_check"
-    :description "Polylith-aware. Run `cargo check` and return structured errors and warnings. Accepts an optional path to the Cargo project or workspace root."
+    :description "Polylith-aware. Run `cargo check --workspace` and return structured errors and warnings. Every workspace member is checked. Accepts an optional path to the Cargo project or workspace root."
     :inputSchema {:type       "object"
                   :properties {"path"    {:type        "string"
                                           :description "Absolute path to the Cargo project or workspace root. Defaults to current directory."}
@@ -323,12 +342,15 @@
                   :required   []}}
 
    {:name        "cargo_clippy"
-    :description "Polylith-aware. Run `cargo clippy -- -D warnings` and return structured diagnostics. Warnings are treated as errors, matching CI strictness. Accepts an optional path to the Cargo project or workspace root."
+    :description "Polylith-aware. Run `cargo clippy --workspace -- -D warnings` and return structured diagnostics. Warnings are treated as errors, matching CI strictness. Set all_targets to 'true' to also lint tests, benches and examples — required to predict a CI gate that runs `clippy --all-targets`."
     :inputSchema {:type       "object"
-                  :properties {"path"    {:type        "string"
-                                          :description "Absolute path to the Cargo project or workspace root. Defaults to current directory."}
-                               "profile" {:type        "string"
-                                          :description "Polylith profile to use (e.g. 'dev', 'production'). Only applies in Polylith workspaces (Polylith.toml detected). Defaults to 'dev'. Ignored for non-Polylith projects."}}
+                  :properties {"path"        {:type        "string"
+                                              :description "Absolute path to the Cargo project or workspace root. Defaults to current directory."}
+                               "all_targets" {:type        "string"
+                                              :enum        ["true" "false"]
+                                              :description "Set to 'true' to pass --all-targets, linting tests, benches and examples in addition to lib and bin targets. Defaults to false."}
+                               "profile"     {:type        "string"
+                                              :description "Polylith profile to use (e.g. 'dev', 'production'). Only applies in Polylith workspaces (Polylith.toml detected). Defaults to 'dev'. Ignored for non-Polylith projects."}}
                   :required   []}}
 
    {:name        "cargo_metadata"
@@ -350,7 +372,7 @@
                   :required   []}}
 
    {:name        "cargo_test"
-    :description "Polylith-aware. Run `cargo test` and return test results with pass/fail counts and failure details."
+    :description "Polylith-aware. Run `cargo test --workspace --no-fail-fast` and return test results with pass/fail counts and failure details. Every workspace member is tested, and one failing crate does not stop the rest."
     :inputSchema {:type       "object"
                   :properties {"path"    {:type        "string"
                                           :description "Absolute path to the Cargo project or workspace root. Defaults to current directory."}
@@ -359,12 +381,15 @@
                   :required   []}}
 
    {:name        "clippy_new_warnings"
-    :description "Polylith-aware. Detect only new clippy warnings introduced by current (uncommitted) changes. Uses `git diff --name-only` to identify changed files, then filters clippy output to those files only. Returns 'clean' or a list of new warnings."
+    :description "Polylith-aware. Detect only new clippy warnings introduced by current (uncommitted) changes. Uses `git diff --name-only` to identify changed files, then filters clippy output to those files only. Returns 'clean' or a list of new warnings. Set all_targets to 'true' to include tests, benches and examples."
     :inputSchema {:type       "object"
-                  :properties {"path"    {:type        "string"
-                                          :description "Absolute path to the Cargo project or workspace root (must be a git repo). Defaults to current directory."}
-                               "profile" {:type        "string"
-                                          :description "Polylith profile to use (e.g. 'dev', 'production'). Only applies in Polylith workspaces (Polylith.toml detected). Defaults to 'dev'. Ignored for non-Polylith projects."}}
+                  :properties {"path"        {:type        "string"
+                                              :description "Absolute path to the Cargo project or workspace root (must be a git repo). Defaults to current directory."}
+                               "all_targets" {:type        "string"
+                                              :enum        ["true" "false"]
+                                              :description "Set to 'true' to pass --all-targets, linting tests, benches and examples in addition to lib and bin targets. Defaults to false."}
+                               "profile"     {:type        "string"
+                                              :description "Polylith profile to use (e.g. 'dev', 'production'). Only applies in Polylith workspaces (Polylith.toml detected). Defaults to 'dev'. Ignored for non-Polylith projects."}}
                   :required   []}}
 
    {:name        "test_coverage_check"
