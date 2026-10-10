@@ -8,12 +8,38 @@
 ;; More restricted than features — require explicit version + release message.
 ;; Deliberately excludes: feature operations (those are in git-flow)
 
-(defn run-git-flow [path & args]
+(defn run-git-flow
+  "Run a git flow subcommand. GIT_EDITOR=true is a hang guard: any git step
+   that falls back to an interactive editor would block forever here, since
+   an MCP server has no terminal."
+  [path & args]
   (let [cmd    (into ["git" "-C" path "flow"] args)
-        result (apply p/shell {:out :string :err :string} cmd)]
+        result (apply p/shell {:out :string :err :string :continue true
+                               :extra-env {"GIT_EDITOR" "true"}}
+                      cmd)]
     (if (zero? (:exit result))
       {:ok true :output (str/trim (:out result))}
-      {:ok false :output (str/trim (:err result))})))
+      ;; git flow writes progress to stdout and the reason to stderr, so a
+      ;; failure needs both to be actionable.
+      {:ok false :output (str/trim (str/join "\n" (remove str/blank?
+                                                          [(:err result)
+                                                           (:out result)])))})))
+
+(defn with-tag-message-file
+  "Call f with the path to a temp file holding message, then delete it.
+
+   git flow builds its `git tag` arguments by concatenating -m into a
+   single-quoted string and eval-ing it, so an apostrophe in the message
+   terminates the quoting, the message is lost, and `git tag -a` drops to an
+   interactive editor that never returns. Passing the message as a file
+   avoids interpolating user text into that eval entirely."
+  [message f]
+  (let [tmp (java.io.File/createTempFile "gitflow-tag-msg" ".txt")]
+    (try
+      (spit tmp message)
+      (f (.getAbsolutePath tmp))
+      (finally
+        (.delete tmp)))))
 
 (defn fmt [{:keys [ok output]}]
   (if ok
@@ -43,8 +69,11 @@
             (throw (ex-info "version must be a valid version string, e.g. 1.2.0" {})))
           (when (str/blank? message)
             (throw (ex-info "message is required for release finish (used as tag annotation)" {})))
-          ;; -m sets the tag message, -n skips the merge commit message prompt
-          (fmt (run-git-flow path "release" "finish" "-m" message version)))
+          ;; -f passes the tag annotation as a file; see with-tag-message-file
+          (fmt (with-tag-message-file
+                 message
+                 (fn [msg-file]
+                   (run-git-flow path "release" "finish" "-f" msg-file version)))))
 
         "gitflow_hotfix_start"
         (let [version (:version arguments)]
@@ -59,7 +88,10 @@
             (throw (ex-info "version must be a valid version string, e.g. 1.2.1" {})))
           (when (str/blank? message)
             (throw (ex-info "message is required for hotfix finish (used as tag annotation)" {})))
-          (fmt (run-git-flow path "hotfix" "finish" "-m" message version)))
+          (fmt (with-tag-message-file
+                 message
+                 (fn [msg-file]
+                   (run-git-flow path "hotfix" "finish" "-f" msg-file version)))))
 
         (str "Unknown tool: " name)))
     (catch clojure.lang.ExceptionInfo e
