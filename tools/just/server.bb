@@ -17,16 +17,23 @@
 (defn run-just [path recipe args]
   (if-not (allowed? recipe)
     (str "Error: recipe '" recipe "' is not in the allowed list for this server")
+    ;; :continue true is required — without it p/shell throws on a non-zero exit
+    ;; and the recipe's output is lost before it can be reported.
     (let [cmd    (into ["just" recipe] (or args []))
-          result (apply p/shell {:out :string :err :string :dir path} cmd)]
+          result (apply p/shell {:out :string :err :string :dir path :continue true} cmd)
+          out    (clojure.string/trim (:out result))
+          err    (clojure.string/trim (:err result))]
       (if (zero? (:exit result))
-        (let [out (clojure.string/trim (:out result))]
-          (if (empty? out) "(no output)" out))
-        (str "Error (exit " (:exit result) "):\n"
-             (clojure.string/trim (:err result)))))))
+        (if (empty? out) "(no output)" out)
+        ;; A non-zero exit is often the meaningful result (diff tools, validators,
+        ;; build gates), so report both streams rather than just the failure.
+        (str "Recipe failed (exit " (:exit result) ")\n"
+             (when-not (empty? out) (str "\n--- stdout ---\n" out "\n"))
+             (when-not (empty? err) (str "\n--- stderr ---\n" err "\n"))
+             (when (and (empty? out) (empty? err)) "\n(no output captured)\n"))))))
 
 (defn list-recipes [path]
-  (let [result (p/shell {:out :string :err :string :dir path}
+  (let [result (p/shell {:out :string :err :string :dir path :continue true}
                         "just" "--list")]
     (if (zero? (:exit result))
       (let [all-lines (clojure.string/split-lines (:out result))
