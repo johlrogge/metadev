@@ -53,6 +53,7 @@ in
     gitflow
     gh
     babashka
+    just               # Task runner for metadev's justfile (and the just MCP)
     adr-tools
     socat              # For Claude Code sandboxing
     inputs.claude-code-nix.packages.${pkgs.stdenv.hostPlatform.system}.default

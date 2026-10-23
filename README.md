@@ -208,6 +208,27 @@ claude.code.mcpServers.my-tool = {
 
 Using the absolute nix store path for `command` means MCP servers connect regardless of whether Claude is started inside or outside `devenv shell`.
 
+## Keeping nixpkgs aligned
+
+`tools/align-nixpkgs/` holds a weekly job that moves every `~/projects` devenv project onto
+the current `cachix/devenv-nixpkgs` `rolling` revision. When projects share one nixpkgs
+revision, they share one toolchain closure in `/nix/store` instead of each keeping its own.
+
+For each project, the job updates `devenv.lock` in a throwaway worktree and checks that
+`devenv shell` still builds. It then commits the lock to a local `chore/align-nixpkgs`
+branch for you to review and merge. It never pushes or fetches.
+
+```bash
+just align-nixpkgs-dry            # see what would change; writes nothing
+just align-nixpkgs                # run now
+just align-nixpkgs-install-timer  # weekly systemd user timer (Mondays)
+just align-nixpkgs-status         # timer state + latest report
+```
+
+Reports go to `~/.local/state/metadev/align-nixpkgs/latest.md`. See
+[tools/align-nixpkgs/README.md](tools/align-nixpkgs/README.md) for the branch rules, the
+merge workflow, and what to expect from GC.
+
 ## MCP Permissions
 
 `.claude/settings.local.json` is generated automatically by the devenv module on `devenv shell`. Importing projects get the standard MCP permission set with no manual step.

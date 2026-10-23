@@ -1,0 +1,13 @@
+[Unit]
+Description=Align nixpkgs pins across ~/projects devenv projects (metadev)
+Documentation=file://@METADEV@/tools/align-nixpkgs/README.md
+
+[Service]
+Type=oneshot
+WorkingDirectory=@METADEV@
+Environment=PATH=@PATH@
+ExecStart=@DEVENV@ shell -- bb tools/align-nixpkgs/align.bb run --gc
+ExecStopPost=/bin/sh -c '[ "$SERVICE_RESULT" = success ] || notify-send -u critical "metadev align-nixpkgs failed" "journalctl --user -u metadev-align-nixpkgs"'
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=4h

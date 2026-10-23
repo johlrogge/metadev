@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly nixpkgs pin alignment (metadev)
+
+[Timer]
+OnCalendar=Mon *-*-* 11:00:00
+Persistent=true
+RandomizedDelaySec=1h
+AccuracySec=15m
+
+[Install]
+WantedBy=timers.target

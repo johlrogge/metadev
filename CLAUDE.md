@@ -42,7 +42,9 @@ metadev/
 ├── devenv.yaml        # Inputs (nixpkgs, claude-code-nix)
 ├── modules/skills.nix # Shared skill declarations
 ├── skills/            # Shared skill sources (SKILL.md body + resources)
+├── justfile           # Task recipes (align-nixpkgs, timer install)
 ├── tools/             # MCP tool servers (Babashka)
+│   └── align-nixpkgs/ # Weekly nixpkgs pin alignment job (CLI, not MCP)
 ├── CLAUDE.md          # This file
 └── README.md          # Usage documentation
 ```
