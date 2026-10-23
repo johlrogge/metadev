@@ -40,7 +40,11 @@ devenv --from path:$HOME/projects/mdma shell -- claude
 metadev/
 ├── devenv.nix         # Shared agents + packages (imported by other projects)
 ├── devenv.yaml        # Inputs (nixpkgs, claude-code-nix)
+├── modules/skills.nix # Shared skill declarations
+├── skills/            # Shared skill sources (SKILL.md body + resources)
+├── justfile           # Task recipes (align-nixpkgs, timer install)
 ├── tools/             # MCP tool servers (Babashka)
+│   └── align-nixpkgs/ # Weekly nixpkgs pin alignment job (CLI, not MCP)
 ├── CLAUDE.md          # This file
 └── README.md          # Usage documentation
 ```
@@ -130,5 +134,6 @@ gh_issue_list(repo: "johlrogge/metadev")
 
 - Agent definitions live in `devenv.nix` — they are the module other projects import
 - MCP tools are Babashka scripts in `tools/<name>/server.bb`
+- Shared skills live in `skills/<name>/` (SKILL.md without frontmatter) and are declared in `modules/skills.nix`; `.claude/skills/` is generated — never commit it
 - Generic agents go here; project-specific agents stay in their project
 - Polymorphic agents load project-specific context via Skills

@@ -31,7 +31,7 @@ On shell entry you'll see available commands and a list of your projects.
 | devops | sonnet | Deployment agent — builds, deploys, and operates project infrastructure via SSH MCP tools. No Bash. |
 | documenter | sonnet | README maintenance, polymorphic via project skills |
 | helix | opus | Helix keymap expert — advises on TUI keymap design using Helix/Kakoune conventions |
-| metadev | sonnet | Metadev project guide — installs skills, checks workspace docs, detects outdated conventions |
+| metadev | sonnet | Metadev project guide — verifies skills are devenv-managed, guides project skills into devenv.nix, checks workspace docs, detects outdated conventions |
 | polylith | sonnet | Polylith architecture expert — design, scaffold, analyse, and migrate Rust/Cargo projects (cargo-polylith 0.14.0) |
 | product-owner | opus | Product ownership and strategic guidance — scope, prioritise, and deliver continuous value |
 | release-manager | sonnet | Git flow lifecycle — features, releases, hotfixes. Never pushes. |
@@ -56,6 +56,17 @@ imports:
 ```
 
 This gives the project all shared agents. Project-specific agents stay in the project's own `devenv.nix`.
+
+## Upgrading to 0.20.0
+
+Shared skills are now declared through devenv (`claude.code.skills`) instead of copied into projects. This is a breaking change. In each consuming project:
+
+1. Run `devenv update devenv` and `devenv update metadev`. Older devenv inputs lack `claude.code.skills`; metadev then warns and installs no shared skills, which breaks the commit, helix and architect agents.
+2. Add `.claude/skills/` to `.gitignore`.
+3. If earlier metadev versions left skills copied under `.claude/skills/`, run `/migrate`. devenv prints "Conflicting file" until they are removed.
+4. Move project skills to `claude/skills/<name>/SKILL.md` (body only, no frontmatter) and declare them in `devenv.nix` — see [Skills](#skills).
+
+`just` is now in the shared devenv packages, so every importing project gets it.
 
 ## Cross-Project Tasks
 
@@ -108,6 +119,11 @@ cat > devenv.nix << 'EOF'
 }
 EOF
 
+# Ignore devenv-generated Claude Code artifacts (skills are symlinked into .claude/skills/)
+cat >> .gitignore << 'EOF'
+.claude/skills/
+EOF
+
 # 4. Enter the shell — agents are ready
 devenv shell
 claude
@@ -152,6 +168,49 @@ Override or extend agent prompts in your project's `devenv.nix`:
 }
 ```
 
+## Skills
+
+Skills are declared in Nix (`claude.code.skills.<name>`) and generated into `.claude/skills/<name>/` on `devenv shell` as symlinks into the nix store. `.claude/skills/` is build output — add it to your project's `.gitignore` and never edit or commit files there.
+
+### Shared skills
+
+metadev provides three skills, enabled by default in every importing project:
+
+| Skill | Used by | Contents |
+|-------|---------|----------|
+| `conventional-commits` | commit | Commit message format, types, and rules |
+| `helix` | helix | Helix keymap expertise plus `references/` |
+| `rust-architect` | architect | Rust reference library under `references/` (not user-invocable) |
+
+Disable one (this breaks the agent that depends on it):
+
+```nix
+metadev.skills.helix.enable = false;
+```
+
+Override individual fields — metadev sets each field of a shared skill with `lib.mkDefault`, so your value wins and the other fields are kept:
+
+```nix
+claude.code.skills.rust-architect.userInvocable = true;
+```
+
+Or replace the skill entirely by declaring all of `claude.code.skills.<name>` yourself. Replacing `rust-architect` drops its `references/` files, which the architect agent reads.
+
+### Project-specific skills
+
+Keep skill sources outside `.claude/`, at `claude/skills/<name>/SKILL.md`, with any supporting files beside it. `SKILL.md` contains only the body — no YAML frontmatter; the description and other fields are declared in `devenv.nix`. The `metadevLib.skillFromDir` helper turns a directory into a skill (SKILL.md becomes the content, every other file a resource):
+
+```nix
+{ metadevLib, ... }:
+{
+  claude.code.skills.architect = metadevLib.skillFromDir ./claude/skills/architect {
+    description = "Project architecture knowledge: layout, conventions, and design constraints.";
+  };
+}
+```
+
+Projects that still have hand-copied skills committed under `.claude/skills/` (from older metadev versions) can run `/migrate` to move them into `claude/skills/` and declare them in `devenv.nix`.
+
 ## MCP Tools
 
 MCP tool servers live in `tools/` and are written in Babashka (bb). Register them in your project's `devenv.nix`:
@@ -165,6 +224,27 @@ claude.code.mcpServers.my-tool = {
 ```
 
 Using the absolute nix store path for `command` means MCP servers connect regardless of whether Claude is started inside or outside `devenv shell`.
+
+## Keeping nixpkgs aligned
+
+`tools/align-nixpkgs/` holds a weekly job that moves every `~/projects` devenv project onto
+the current `cachix/devenv-nixpkgs` `rolling` revision. When projects share one nixpkgs
+revision, they share one toolchain closure in `/nix/store` instead of each keeping its own.
+
+For each project, the job updates `devenv.lock` in a throwaway worktree and checks that
+`devenv shell` still builds. It then commits the lock to a local `chore/align-nixpkgs`
+branch for you to review and merge. It never pushes or fetches.
+
+```bash
+just align-nixpkgs-dry            # see what would change; writes nothing
+just align-nixpkgs                # run now
+just align-nixpkgs-install-timer  # weekly systemd user timer (Mondays)
+just align-nixpkgs-status         # timer state + latest report
+```
+
+Reports go to `~/.local/state/metadev/align-nixpkgs/latest.md`. See
+[tools/align-nixpkgs/README.md](tools/align-nixpkgs/README.md) for the branch rules, the
+merge workflow, and what to expect from GC.
 
 ## MCP Permissions
 
