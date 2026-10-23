@@ -49,10 +49,11 @@ in
     _module.args.metadevLib = { inherit skillFromDir; };
   } // (
     # Older devenv inputs lack claude.code.skills; skip the skills instead of failing evaluation.
-    if options.claude.code ? skills then {
+    if lib.hasAttrByPath [ "claude" "code" "skills" ] options then {
+      # mkDefault per field, so a project can override one field without losing the rest.
       claude.code.skills = lib.mapAttrs (name: attrs:
         lib.mkIf cfg.${name}.enable
-          (lib.mkDefault (skillFromDir (../skills + "/${name}") attrs))
+          (lib.mapAttrs (_: lib.mkDefault) (skillFromDir (../skills + "/${name}") attrs))
       ) shared;
     } else lib.warn
       "metadev: this devenv has no claude.code.skills option, so the shared skills are not installed. Run `devenv update` to get them."

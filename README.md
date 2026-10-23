@@ -57,6 +57,17 @@ imports:
 
 This gives the project all shared agents. Project-specific agents stay in the project's own `devenv.nix`.
 
+## Upgrading to 0.20.0
+
+Shared skills are now declared through devenv (`claude.code.skills`) instead of copied into projects. This is a breaking change. In each consuming project:
+
+1. Run `devenv update devenv` and `devenv update metadev`. Older devenv inputs lack `claude.code.skills`; metadev then warns and installs no shared skills, which breaks the commit, helix and architect agents.
+2. Add `.claude/skills/` to `.gitignore`.
+3. If earlier metadev versions left skills copied under `.claude/skills/`, run `/migrate`. devenv prints "Conflicting file" until they are removed.
+4. Move project skills to `claude/skills/<name>/SKILL.md` (body only, no frontmatter) and declare them in `devenv.nix` — see [Skills](#skills).
+
+`just` is now in the shared devenv packages, so every importing project gets it.
+
 ## Cross-Project Tasks
 
 From the metadev shell, run Claude Code in another project's devenv:
@@ -177,7 +188,13 @@ Disable one (this breaks the agent that depends on it):
 metadev.skills.helix.enable = false;
 ```
 
-Or replace it by declaring `claude.code.skills.<name>` yourself — metadev's definition is `lib.mkDefault`, so yours wins.
+Override individual fields — metadev sets each field of a shared skill with `lib.mkDefault`, so your value wins and the other fields are kept:
+
+```nix
+claude.code.skills.rust-architect.userInvocable = true;
+```
+
+Or replace the skill entirely by declaring all of `claude.code.skills.<name>` yourself. Replacing `rust-architect` drops its `references/` files, which the architect agent reads.
 
 ### Project-specific skills
 
