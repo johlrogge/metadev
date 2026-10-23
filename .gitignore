@@ -5,8 +5,9 @@ devenv.local.nix
 .worktrees/
 
 # devenv-generated Claude Code artifacts — source of truth is devenv.nix
-# (claude.code.agents / claude.code.commands). Regenerated on `devenv shell`.
+# (claude.code.agents / claude.code.commands / claude.code.skills). Regenerated on `devenv shell`.
 .claude/agents/
 .claude/commands/init.md
 .claude/commands/migrate.md
 .claude/settings.json
+.claude/skills/

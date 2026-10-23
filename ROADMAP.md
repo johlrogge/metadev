@@ -64,7 +64,7 @@ Release-manager keeps gh-ci read tools for gating. CI configuration changes dele
 A template or convention for language-specific test/check/lint MCP servers. The toolsmith stamps these out per language.
 
 ### 4.2 Ship a devops skill template with metadev
-Provide a scaffold template for `.claude/skills/devops/SKILL.md` so projects do not start from zero.
+Provide a scaffold template for `claude/skills/devops/SKILL.md` (declared via `claude.code.skills.devops`) so projects do not start from zero.
 
 ---
 

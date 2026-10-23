@@ -31,7 +31,7 @@ On shell entry you'll see available commands and a list of your projects.
 | devops | sonnet | Deployment agent — builds, deploys, and operates project infrastructure via SSH MCP tools. No Bash. |
 | documenter | sonnet | README maintenance, polymorphic via project skills |
 | helix | opus | Helix keymap expert — advises on TUI keymap design using Helix/Kakoune conventions |
-| metadev | sonnet | Metadev project guide — installs skills, checks workspace docs, detects outdated conventions |
+| metadev | sonnet | Metadev project guide — verifies skills are devenv-managed, guides project skills into devenv.nix, checks workspace docs, detects outdated conventions |
 | polylith | sonnet | Polylith architecture expert — design, scaffold, analyse, and migrate Rust/Cargo projects (cargo-polylith 0.14.0) |
 | product-owner | opus | Product ownership and strategic guidance — scope, prioritise, and deliver continuous value |
 | release-manager | sonnet | Git flow lifecycle — features, releases, hotfixes. Never pushes. |
@@ -108,6 +108,11 @@ cat > devenv.nix << 'EOF'
 }
 EOF
 
+# Ignore devenv-generated Claude Code artifacts (skills are symlinked into .claude/skills/)
+cat >> .gitignore << 'EOF'
+.claude/skills/
+EOF
+
 # 4. Enter the shell — agents are ready
 devenv shell
 claude
@@ -151,6 +156,43 @@ Override or extend agent prompts in your project's `devenv.nix`:
   '';
 }
 ```
+
+## Skills
+
+Skills are declared in Nix (`claude.code.skills.<name>`) and generated into `.claude/skills/<name>/` on `devenv shell` as symlinks into the nix store. `.claude/skills/` is build output — add it to your project's `.gitignore` and never edit or commit files there.
+
+### Shared skills
+
+metadev provides three skills, enabled by default in every importing project:
+
+| Skill | Used by | Contents |
+|-------|---------|----------|
+| `conventional-commits` | commit | Commit message format, types, and rules |
+| `helix` | helix | Helix keymap expertise plus `references/` |
+| `rust-architect` | architect | Rust reference library under `references/` (not user-invocable) |
+
+Disable one (this breaks the agent that depends on it):
+
+```nix
+metadev.skills.helix.enable = false;
+```
+
+Or replace it by declaring `claude.code.skills.<name>` yourself — metadev's definition is `lib.mkDefault`, so yours wins.
+
+### Project-specific skills
+
+Keep skill sources outside `.claude/`, at `claude/skills/<name>/SKILL.md`, with any supporting files beside it. `SKILL.md` contains only the body — no YAML frontmatter; the description and other fields are declared in `devenv.nix`. The `metadevLib.skillFromDir` helper turns a directory into a skill (SKILL.md becomes the content, every other file a resource):
+
+```nix
+{ metadevLib, ... }:
+{
+  claude.code.skills.architect = metadevLib.skillFromDir ./claude/skills/architect {
+    description = "Project architecture knowledge: layout, conventions, and design constraints.";
+  };
+}
+```
+
+Projects that still have hand-copied skills committed under `.claude/skills/` (from older metadev versions) can run `/migrate` to move them into `claude/skills/` and declare them in `devenv.nix`.
 
 ## MCP Tools
 

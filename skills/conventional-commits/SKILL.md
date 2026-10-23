@@ -1,8 +1,3 @@
----
-name: conventional-commits
-description: Conventional Commits specification. Defines commit message format, types, and rules.
----
-
 # Conventional Commits
 
 All commits follow the [Conventional Commits](https://www.conventionalcommits.org/) specification.
