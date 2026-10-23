@@ -63,6 +63,10 @@ Safety: refuses the main worktree, anything that is not a registered worktree un
 `<repo>/.worktrees/` (including symlinks escaping it), and the worktree you are calling from
 (call with the main repo path instead). Without `force`, git refuses to remove a dirty worktree.
 
+## Errors
+
+A failing git command returns git's own error text, not a generic failure message.
+
 ## What Is NOT Exposed
 
 - `git push` — no remote write operations
