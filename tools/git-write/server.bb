@@ -1,25 +1,41 @@
 #!/usr/bin/env bb
 
 (require '[babashka.process :as p]
-         '[cheshire.core :as json])
+         '[babashka.fs :as fs]
+         '[cheshire.core :as json]
+         '[clojure.string :as str])
 
 ;; git-write MCP server
-;; Exposes safe, scoped git write operations: add, commit, stash, checkout, git-flow
+;; Exposes safe, scoped git write operations: add, commit, stash, checkout, git-flow,
+;; and worktree add/list/remove (confined to <repo>/.worktrees/)
 ;; Deliberately excludes: push, reset --hard, force operations, branch deletion
+;; Exception: git_worktree_remove accepts force=true, limited to worktrees under .worktrees/
+
+(defn shell-result
+  "Normalise a babashka.process result (run with :continue true) into
+   {:ok bool :output string :exit int}. On failure, prefers stderr, then stdout,
+   then a synthesized message so the error is never empty."
+  [result label]
+  (let [out (str/trim (or (:out result) ""))
+        err (str/trim (or (:err result) ""))]
+    (if (zero? (:exit result))
+      {:ok true :output out :exit 0}
+      {:ok false :exit (:exit result)
+       :output (cond (not (str/blank? err)) err
+                     (not (str/blank? out)) out
+                     :else (str label " exited with code " (:exit result)))})))
 
 (defn run-git [repo-path & args]
-  (let [cmd (into ["git" "-C" repo-path] args)
-        result (apply p/shell {:out :string :err :string} cmd)]
-    (if (zero? (:exit result))
-      {:ok true :output (str/trim (:out result))}
-      {:ok false :output (str/trim (:err result))})))
+  (let [result (apply p/shell {:out :string :err :string :continue true}
+                      (into ["git" "-C" repo-path] args))]
+    (shell-result result (str "git " (first args)))))
 
 (defn format-result [{:keys [ok output]}]
   (if ok
     (if (str/blank? output)
       "Done."
       output)
-    (str "Error: " output)))
+    (str "Error: " (if (str/blank? output) "unknown error" output))))
 
 (def forbidden-files #{"-A" "." "*"})
 
@@ -101,11 +117,9 @@
         cmd-args     (if (str/blank? name)
                        action-parts
                        (conj (vec action-parts) name))
-        result       (apply p/shell {:out :string :err :string}
+        result       (apply p/shell {:out :string :err :string :continue true}
                             (into ["git" "-C" path "flow"] cmd-args))]
-    (format-result (if (zero? (:exit result))
-                     {:ok true :output (str/trim (:out result))}
-                     {:ok false :output (str/trim (:err result))}))))
+    (format-result (shell-result result (str "git flow " action)))))
 
 (defn git-rm [path files cached recursive]
   (when (str/blank? files)
@@ -145,6 +159,165 @@
                true  (conj patch))]
     (format-result (apply run-git path args))))
 
+;; --- worktrees -------------------------------------------------------------
+;; All worktrees managed here live under <main-checkout>/.worktrees/<name>.
+
+(def worktree-dir ".worktrees")
+
+(def worktree-name-re #"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+
+(defn valid-worktree-name? [s]
+  (and (string? s)
+       (re-matches worktree-name-re s)
+       (not (str/includes? s ".."))))
+
+(defn valid-ref? [s]
+  (and (string? s)
+       (not (str/blank? s))
+       (not (str/starts-with? s "-"))
+       (not (re-find #"[\s\x00-\x1f\x7f]" s))))
+
+(defn parse-worktree-list
+  "Parse `git worktree list --porcelain` output into a vector of maps."
+  [porcelain]
+  (->> (str/split (str/trim (or porcelain "")) #"\n\s*\n")
+       (remove str/blank?)
+       (mapv (fn [block]
+               (reduce (fn [m line]
+                         (let [[k v] (str/split line #" " 2)]
+                           (case k
+                             "worktree" (assoc m :worktree v)
+                             "HEAD"     (assoc m :head v)
+                             "branch"   (assoc m :branch v)
+                             "detached" (assoc m :detached true)
+                             "bare"     (assoc m :bare true)
+                             "locked"   (assoc m :locked (or v true))
+                             "prunable" (assoc m :prunable (or v true))
+                             m)))
+                       {}
+                       (str/split-lines block))))))
+
+(defn list-worktrees [path]
+  (let [result (run-git path "worktree" "list" "--porcelain")]
+    (when-not (:ok result)
+      (throw (ex-info (:output result) {})))
+    (parse-worktree-list (:output result))))
+
+(defn canonical [p]
+  (str (fs/canonicalize p)))
+
+(defn main-root
+  "Absolute, canonical path of the main worktree of the repository containing path."
+  [path]
+  (let [main (first (list-worktrees path))]
+    (when-not (:worktree main)
+      (throw (ex-info (str "could not determine main worktree for " path) {})))
+    (when (:bare main)
+      (throw (ex-info "bare repositories are not supported" {})))
+    (canonical (:worktree main))))
+
+(defn worktree-target [root name]
+  (str (fs/path root worktree-dir name)))
+
+(defn ensure-worktrees-ignored!
+  "Make sure /.worktrees/ is ignored in the main checkout. If no ignore rule covers it,
+   append one to the repository's info/exclude (never touches tracked .gitignore)."
+  [root]
+  (let [check (run-git root "check-ignore" "-q" (str worktree-dir "/probe"))]
+    (case (:exit check)
+      0 nil
+      1 (let [res (run-git root "rev-parse" "--path-format=absolute" "--git-path" "info/exclude")]
+          (when-not (:ok res)
+            (throw (ex-info (:output res) {})))
+          (let [exclude (:output res)]
+            (when-let [parent (fs/parent exclude)]
+              (fs/create-dirs parent))
+            (spit exclude (str "\n/" worktree-dir "/\n") :append true)))
+      (throw (ex-info (:output check) {})))))
+
+(defn- require-worktree-name! [worktree]
+  (when (str/blank? worktree)
+    (throw (ex-info "worktree is required" {})))
+  (when-not (valid-worktree-name? worktree)
+    (throw (ex-info "worktree must be a bare name matching [A-Za-z0-9][A-Za-z0-9._-]* (no '/' or '..')" {}))))
+
+(defn git-worktree-add [path worktree ref detach]
+  (when (str/blank? path)
+    (throw (ex-info "path is required" {})))
+  (require-worktree-name! worktree)
+  (when (str/blank? ref)
+    (throw (ex-info "ref is required" {})))
+  (when-not (valid-ref? ref)
+    (throw (ex-info "ref must not start with '-' or contain whitespace/control characters" {})))
+  (let [root    (main-root path)
+        target  (worktree-target root worktree)
+        detach? (not (false? detach))]
+    (when (or (fs/exists? target) (fs/sym-link? target))
+      (throw (ex-info (str "worktree " target " already exists") {})))
+    (let [[result where]
+          (if detach?
+            ;; resolve in the caller's checkout so HEAD means the caller's HEAD
+            (let [rev (run-git path "rev-parse" "--verify" "--quiet" "--end-of-options"
+                               (str ref "^{commit}"))]
+              (when-not (and (:ok rev) (not (str/blank? (:output rev))))
+                (throw (ex-info (str "ref '" ref "' does not resolve to a commit") {})))
+              (let [sha (:output rev)]
+                [(run-git root "worktree" "add" "--detach" "--" target sha)
+                 (str "detached at " (subs sha 0 (min 7 (count sha))))]))
+            (do
+              (when-not (valid-branch-name? ref)
+                (throw (ex-info "with detach=false, ref must be a valid branch name" {})))
+              (when-not (:ok (run-git root "show-ref" "--verify" "--quiet" (str "refs/heads/" ref)))
+                (throw (ex-info (str "branch '" ref "' does not exist (branch creation is not supported)") {})))
+              [(run-git root "worktree" "add" "--" target ref)
+               (str "on branch " ref)]))]
+      (if (:ok result)
+        (let [warning (when (fs/exists? (fs/path root worktree-dir))
+                        (try
+                          (ensure-worktrees-ignored! root)
+                          nil
+                          (catch clojure.lang.ExceptionInfo e
+                            (str "Warning: could not add /" worktree-dir "/ to info/exclude: "
+                                 (ex-message e)))))]
+          (str "Created worktree at " target " (" where ")"
+               (when-not (str/blank? (:output result))
+                 (str "\n" (:output result)))
+               (when warning
+                 (str "\n" warning))))
+        (format-result result)))))
+
+(defn git-worktree-list [path]
+  (when (str/blank? path)
+    (throw (ex-info "path is required" {})))
+  (format-result (run-git path "worktree" "list" "--porcelain")))
+
+(defn git-worktree-remove [path worktree force]
+  (when (str/blank? path)
+    (throw (ex-info "path is required" {})))
+  (require-worktree-name! worktree)
+  (let [root      (main-root path)
+        target    (worktree-target root worktree)
+        canon-tgt (canonical target)
+        managed   (str (canonical (fs/path root worktree-dir)) "/")
+        not-registered (ex-info (str target " is not a registered worktree under "
+                                     root "/" worktree-dir "/") {})]
+    ;; Defensive: a symlink under .worktrees/ must not let us reach outside it.
+    (when-not (str/starts-with? canon-tgt managed)
+      (throw not-registered))
+    (when-not (some #(and (:worktree %) (= (canonical (:worktree %)) canon-tgt))
+                    (list-worktrees root))
+      (throw not-registered))
+    (when (= canon-tgt root)
+      (throw (ex-info "refusing to remove the main worktree" {})))
+    (let [caller (canonical path)]
+      (when (or (= caller canon-tgt)
+                (str/starts-with? caller (str canon-tgt "/")))
+        (throw (ex-info "cannot remove the worktree you are calling from; call with the main repo path" {}))))
+    (let [args (cond-> ["worktree" "remove"]
+                 (true? force) (conj "--force")
+                 true          (into ["--" target]))]
+      (format-result (apply run-git root args)))))
+
 (defn handle-tool-call [name arguments]
   (try
     (case name
@@ -180,6 +353,15 @@
 
       "git_apply"
       (git-apply (:path arguments) (:patch arguments) (:check arguments))
+
+      "git_worktree_add"
+      (git-worktree-add (:path arguments) (:worktree arguments) (:ref arguments) (:detach arguments))
+
+      "git_worktree_list"
+      (git-worktree-list (:path arguments))
+
+      "git_worktree_remove"
+      (git-worktree-remove (:path arguments) (:worktree arguments) (:force arguments))
 
       (str "Unknown tool: " name))
     (catch clojure.lang.ExceptionInfo e
@@ -273,7 +455,30 @@
                   :properties {"path"     {:type "string" :description "Absolute path to the git repository root"}
                                "strategy" {:type "string" :enum ["ours" "theirs"] :description "'ours' to keep the current branch's version, 'theirs' to take the incoming version"}
                                "files"    {:type "string" :description "Space-separated list of conflicted file paths to resolve"}}
-                  :required ["path" "strategy" "files"]}}])
+                  :required ["path" "strategy" "files"]}}
+
+   {:name "git_worktree_add"
+    :description "Create a git worktree at <repo>/.worktrees/<worktree> (main checkout, even if path is a worktree). Detached at ref by default; set detach=false to check out an existing branch. Adds /.worktrees/ to .git/info/exclude if not already ignored. Never creates branches."
+    :inputSchema {:type "object"
+                  :properties {"path"     {:type "string"  :description "Absolute path to the git repository root or any of its worktrees"}
+                               "worktree" {:type "string"  :description "Bare worktree name, e.g. \"old-code\" -> <repo>/.worktrees/old-code. Letters, digits, '.', '_', '-'; no '/' or '..'."}
+                               "ref"      {:type "string"  :description "Commit-ish to check out (branch, tag, or sha). Must not start with '-'. With detach=false it must be an existing local branch."}
+                               "detach"   {:type "boolean" :description "If true (default), create a detached worktree at ref. Set to false to check out an existing local branch."}}
+                  :required ["path" "worktree" "ref"]}}
+
+   {:name "git_worktree_list"
+    :description "List all worktrees of the repository (git worktree list --porcelain)."
+    :inputSchema {:type "object"
+                  :properties {"path" {:type "string" :description "Absolute path to the git repository root or any of its worktrees"}}
+                  :required ["path"]}}
+
+   {:name "git_worktree_remove"
+    :description "Remove a worktree previously created under <repo>/.worktrees/. Refuses the main worktree, anything outside .worktrees/, and the worktree you are calling from. Fails on uncommitted changes unless force=true."
+    :inputSchema {:type "object"
+                  :properties {"path"     {:type "string"  :description "Absolute path to the main repository checkout (call from the main checkout, not from the worktree being removed)"}
+                               "worktree" {:type "string"  :description "Bare worktree name, as passed to git_worktree_add"}
+                               "force"    {:type "boolean" :description "If true, remove even with uncommitted or untracked changes (git worktree remove --force). Destroys those changes. Default: false."}}
+                  :required ["path" "worktree"]}}])
 
 (loop []
   (when-let [line (read-line)]

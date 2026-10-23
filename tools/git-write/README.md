@@ -27,13 +27,49 @@ Parameters:
 - `path` (string) — absolute path to the git repository root
 - `action` (string) — `"push"` to stash current changes, `"pop"` to restore the most recent stash
 
+### Worktrees
+
+All worktrees managed by these tools live under `<repo>/.worktrees/<name>`, where `<repo>` is the
+**main** checkout (resolved via `git worktree list`, even when `path` points at a worktree). Bare
+repositories are not supported.
+
+#### `git_worktree_add`
+Creates a worktree at `<repo>/.worktrees/<worktree>`. Never creates branches.
+
+Parameters:
+- `path` (string) — absolute path to the repository root or any of its worktrees
+- `worktree` (string) — bare name, e.g. `old-code` → `<repo>/.worktrees/old-code`. Letters, digits, `.`, `_`, `-`; no `/` or `..`
+- `ref` (string) — commit-ish (branch, tag, sha); must not start with `-`
+- `detach` (boolean, default `true`) — when true, the ref is resolved to a commit and the worktree is created detached at that sha. Set to `false` to check out an **existing local branch** (fails if the branch does not exist or is checked out elsewhere)
+
+If `/.worktrees/` is not already ignored, `/.worktrees/` is appended to the repository's
+`info/exclude` (never to a tracked `.gitignore`).
+
+#### `git_worktree_list`
+Lists all worktrees (`git worktree list --porcelain`).
+
+Parameters:
+- `path` (string) — absolute path to the repository root or any of its worktrees
+
+#### `git_worktree_remove`
+Removes a worktree previously created under `<repo>/.worktrees/`.
+
+Parameters:
+- `path` (string) — absolute path to the main checkout
+- `worktree` (string) — bare name, as passed to `git_worktree_add`
+- `force` (boolean, default `false`) — pass `--force`, removing the worktree even with uncommitted or untracked changes. **Destroys those changes.**
+
+Safety: refuses the main worktree, anything that is not a registered worktree under
+`<repo>/.worktrees/` (including symlinks escaping it), and the worktree you are calling from
+(call with the main repo path instead). Without `force`, git refuses to remove a dirty worktree.
+
 ## What Is NOT Exposed
 
 - `git push` — no remote write operations
 - `git reset --hard` — no destructive history rewrites
-- Force operations (`--force`, `-f`)
+- Force operations, except `git_worktree_remove force`, which is limited to `.worktrees/`
 - Branch deletion
-- Rebase or merge
+- Rebase
 
 ## Usage
 

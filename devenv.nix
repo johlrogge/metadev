@@ -338,6 +338,7 @@ in
         "mcp__git-write__git_checkout"
         "mcp__git-write__git_cherry_pick"
         "mcp__git-write__git_stash"
+        "mcp__git-write__git_worktree_list"
         "mcp__git-flow__gitflow_init"
         "mcp__git-flow__gitflow_feature_start"
         "mcp__git-flow__gitflow_feature_finish"
@@ -375,6 +376,7 @@ in
           the user before calling gitflow_release_finish or gitflow_hotfix_finish
         - Cherry-picks: use git_checkout to switch branches, git_cherry_pick to apply commits
         - CI gating: check gh_run_list / gh_run_watch before finishing a release; block if CI is red
+        - If checkout/finish fails because a branch is checked out in another worktree, run git_worktree_list and report it — do not remove worktrees yourself.
 
         ## Workflows
 
