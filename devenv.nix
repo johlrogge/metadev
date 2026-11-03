@@ -1144,8 +1144,8 @@ in
 
            **Always prefer MCP tools over Bash.** This project inherits MCP servers
            from metadev (`git-read`, `git-write`, `gh-issues`, `gh-ci`, `gh-repo`,
-           `rust-codebase`, `just`, `devenv`, `cargo-polylith`, `adr`, `ssh`,
-           `mcp-test`) — plus any project-specific servers declared in its
+           `rust-codebase`, `just`, `devenv`, `cargo-polylith` (unless
+           `metadev.polylith.enable = false`), `adr`, `ssh`, `mcp-test`) — plus any project-specific servers declared in its
            `devenv.nix`. Use them first.
 
            When no MCP covers the operation:
