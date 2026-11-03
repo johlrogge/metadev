@@ -32,14 +32,14 @@ On shell entry you'll see available commands and a list of your projects.
 | documenter | sonnet | README maintenance, polymorphic via project skills |
 | helix | opus | Helix keymap expert — advises on TUI keymap design using Helix/Kakoune conventions |
 | metadev | sonnet | Metadev project guide — verifies skills are devenv-managed, guides project skills into devenv.nix, checks workspace docs, detects outdated conventions |
-| polylith | sonnet | Polylith architecture expert — design, scaffold, analyse, and migrate Rust/Cargo projects (cargo-polylith 0.14.0) |
+| polylith | sonnet | Polylith architecture expert — design, scaffold, analyse, and migrate Rust/Cargo projects (cargo-polylith 0.14.0). Optional — see [Disabling Polylith](#disabling-polylith) |
 | product-owner | opus | Product ownership and strategic guidance — scope, prioritise, and deliver continuous value |
 | release-manager | sonnet | Git flow lifecycle — features, releases, hotfixes. Never pushes. |
 | toolsmith | sonnet | Creates Babashka MCP tool servers for permission-free agent access |
 
 All agents operate within a strict named-tool boundary. No agent has a Bash escape hatch.
 
-The polylith agent uses the `cargo-polylith` MCP server (0.14.0), which exposes read tools (`polylith_info`, `polylith_deps`, `polylith_check`, `polylith_status`) and write tools including `polylith_bump` (workspace version bumping), `polylith_change_profile` (regenerating root `Cargo.toml` from a named profile, including `[profile.*]` sections from the profile's `.profile` file), and `polylith_migrate_package_meta` (moving `[workspace.package]` metadata from `Polylith.toml` to root `Cargo.toml`).
+The polylith agent is optional (see [Disabling Polylith](#disabling-polylith)). It uses the `cargo-polylith` MCP server (0.14.0), which exposes read tools (`polylith_info`, `polylith_deps`, `polylith_check`, `polylith_status`) and write tools including `polylith_bump` (workspace version bumping), `polylith_change_profile` (regenerating root `Cargo.toml` from a named profile, including `[profile.*]` sections from the profile's `.profile` file), and `polylith_migrate_package_meta` (moving `[workspace.package]` metadata from `Polylith.toml` to root `Cargo.toml`).
 
 ## Importing into a Project
 
@@ -56,6 +56,10 @@ imports:
 ```
 
 This gives the project all shared agents. Project-specific agents stay in the project's own `devenv.nix`.
+
+## Upgrading to 0.21.0
+
+No action required. New option `metadev.polylith.enable` (default `true`) lets non-polylith projects opt out of cargo-polylith — see [Disabling Polylith](#disabling-polylith).
 
 ## Upgrading to 0.20.0
 
@@ -167,6 +171,16 @@ Override or extend agent prompts in your project's `devenv.nix`:
   '';
 }
 ```
+
+## Disabling Polylith
+
+Polylith support is on by default. Projects that are not polylith workspaces (e.g. a single crate) can turn it off in `devenv.nix`:
+
+```nix
+metadev.polylith.enable = false;
+```
+
+This removes the `cargo-polylith` package, its MCP server, the `polylith` agent, the architect's `polylith_*` tools, and the polylith entries in `.claude/settings.local.json`.
 
 ## Skills
 

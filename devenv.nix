@@ -14,6 +14,8 @@ let
     nativeBuildInputs = [ pkgs.git ];
   };
 
+  polylithEnabled = config.metadev.polylith.enable;
+
   metaenvSkill = ''
     ## Capability Boundaries (metaenv)
 
@@ -46,7 +48,7 @@ let
   '';
 in
 {
-  imports = [ ./modules/skills.nix ];
+  imports = [ ./modules/skills.nix ./modules/polylith.nix ];
 
   packages = with pkgs; [
     git
@@ -57,8 +59,7 @@ in
     adr-tools
     socat              # For Claude Code sandboxing
     inputs.claude-code-nix.packages.${pkgs.stdenv.hostPlatform.system}.default
-    cargo-polylith-pkg
-  ];
+  ] ++ lib.optional polylithEnabled cargo-polylith-pkg;
 
   claude.code.enable = true;
 
@@ -110,7 +111,7 @@ in
     args = [ "${./.}/tools/ssh/server.bb" ];
   };
 
-  claude.code.mcpServers.cargo-polylith = {
+  claude.code.mcpServers.cargo-polylith = lib.mkIf polylithEnabled {
     type = "stdio";
     command = "cargo-polylith";
     args = [ "polylith" "mcp" "serve" "--write" ];
@@ -486,15 +487,16 @@ in
         "mcp__rust-codebase__cargo_metadata"
         "mcp__rust-codebase__cargo_tree"
         "mcp__rust-codebase__clippy_new_warnings"
+        "mcp__adr__adr_list"
+        "mcp__adr__adr_read"
+        "mcp__adr__adr_search"
+        "mcp__adr__adr_new"
+      ] ++ lib.optionals polylithEnabled [
         "mcp__cargo-polylith__polylith_info"
         "mcp__cargo-polylith__polylith_deps"
         "mcp__cargo-polylith__polylith_check"
         "mcp__cargo-polylith__polylith_status"
         "mcp__cargo-polylith__polylith_profile_list"
-        "mcp__adr__adr_list"
-        "mcp__adr__adr_read"
-        "mcp__adr__adr_search"
-        "mcp__adr__adr_new"
       ];
       prompt = ''
         You are the Architect. You review code and advise on design across any language.
@@ -605,7 +607,7 @@ in
       '';
     };
 
-    polylith = lib.mkDefault {
+    polylith = lib.mkIf polylithEnabled (lib.mkDefault {
       description = "Polylith architecture expert. Helps design, scaffold, analyse, and migrate Rust/Cargo projects to the polylith model.";
       model = "sonnet";
       tools = [
@@ -693,7 +695,7 @@ in
 
         ${metaenvSkill}
       '';
-    };
+    });
 
     helix = lib.mkDefault {
       description = "Helix keymap expert. Advises on TUI keymap design using Helix/Kakoune conventions. Read-only — advises but does not implement.";
@@ -1142,8 +1144,8 @@ in
 
            **Always prefer MCP tools over Bash.** This project inherits MCP servers
            from metadev (`git-read`, `git-write`, `gh-issues`, `gh-ci`, `gh-repo`,
-           `rust-codebase`, `just`, `devenv`, `cargo-polylith`, `adr`, `ssh`,
-           `mcp-test`) — plus any project-specific servers declared in its
+           `rust-codebase`, `just`, `devenv`, `cargo-polylith` (unless
+           `metadev.polylith.enable = false`), `adr`, `ssh`, `mcp-test`) — plus any project-specific servers declared in its
            `devenv.nix`. Use them first.
 
            When no MCP covers the operation:
@@ -1165,9 +1167,10 @@ in
 
         ### .claude/settings.local.json drift and MCP coverage
 
-        MCP tool permissions for metadev's 14 servers (adr, cargo-polylith, devenv,
+        MCP tool permissions for metadev's servers (adr, cargo-polylith, devenv,
         gh-ci, gh-issues, gh-repo, git-flow, git-flow-release, git-read, git-write,
-        just, mcp-test, rust-codebase, ssh) are declared by the metadev devenv module
+        just, mcp-test, rust-codebase, ssh — cargo-polylith only when
+        `metadev.polylith.enable` is true, the default) are declared by the metadev devenv module
         as broad `mcp__<server>__*` patterns written to `.claude/settings.local.json`
         (a nix-store symlink, regenerated on `devenv shell`).
 
@@ -1177,18 +1180,18 @@ in
         Signs of drift:
         1. `.claude/settings.local.json` is a regular file, not a nix-store symlink
         2. It contains entries like `mcp__<metadev-server>__<specific_tool>` where
-           `<metadev-server>` is one of the 14 listed above (subsumed by the broad
+           `<metadev-server>` is one of the servers listed above (subsumed by the broad
            `mcp__<server>__*` pattern)
         3. `enabledMcpjsonServers` is empty, missing, or lists only `mcp.devenv.sh`
-           instead of the 14 metadev servers
+           instead of the metadev servers
 
         **Action if drift is detected.** Offer to clean the file. The cleaned file should:
-        - Include the 14 broad `mcp__<server>__*` patterns
+        - Include one broad `mcp__<server>__*` pattern per metadev server
         - Drop every narrow `mcp__<metadev-server>__<tool>` entry subsumed by the above
         - Keep every `Bash(...)`, `Read(...)`, `WebFetch(...)`, `WebSearch` entry —
           those are project-specific and not covered by the devenv module
         - Keep any `mcp__<other-server>__*` entry from servers not in the metadev set
-        - Set `enableAllProjectMcpServers: true` and `enabledMcpjsonServers` to the 14
+        - Set `enableAllProjectMcpServers: true` and `enabledMcpjsonServers` to the
           metadev server names
 
         Offer the cleaned JSON as a diff, then write it only after confirmation.
@@ -1505,7 +1508,7 @@ in
   files.".claude/settings.local.json".json = let
     mcpServers = [
       "adr"
-      "cargo-polylith"
+    ] ++ lib.optional polylithEnabled "cargo-polylith" ++ [
       "gh-ci"
       "gh-issues"
       "gh-repo"
@@ -1525,8 +1528,6 @@ in
       "Bash(adr help:*)"
       "Bash(bb:*)"
       "Bash(cargo check:*)"
-      "Bash(cargo polylith:*)"
-      "Bash(cargo-polylith polylith:*)"
       "Bash(devenv mcp:*)"
       "Bash(devenv shell:*)"
       "Bash(devenv tasks:*)"
@@ -1551,8 +1552,11 @@ in
       "WebFetch(domain:devenv.sh)"
       "WebFetch(domain:docs.helix-editor.com)"
       "WebFetch(domain:kakoune.org)"
-      "WebFetch(domain:polylith.gitbook.io)"
       "WebSearch"
+    ] ++ lib.optionals polylithEnabled [
+      "Bash(cargo polylith:*)"
+      "Bash(cargo-polylith polylith:*)"
+      "WebFetch(domain:polylith.gitbook.io)"
     ];
     enableAllProjectMcpServers = true;
     enabledMcpjsonServers = mcpServers;
