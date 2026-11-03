@@ -168,6 +168,16 @@ Override or extend agent prompts in your project's `devenv.nix`:
 }
 ```
 
+## Disabling Polylith
+
+Polylith support is on by default. Projects that are not polylith workspaces (e.g. a single crate) can turn it off in `devenv.nix`:
+
+```nix
+metadev.polylith.enable = false;
+```
+
+This removes the `cargo-polylith` package, its MCP server, the `polylith` agent, the architect's `polylith_*` tools, and the polylith entries in `.claude/settings.local.json`.
+
 ## Skills
 
 Skills are declared in Nix (`claude.code.skills.<name>`) and generated into `.claude/skills/<name>/` on `devenv shell` as symlinks into the nix store. `.claude/skills/` is build output — add it to your project's `.gitignore` and never edit or commit files there.
