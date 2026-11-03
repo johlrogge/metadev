@@ -4,7 +4,7 @@
          '[cheshire.core :as json])
 
 ;; git-flow-release MCP server — release and hotfix operations
-;; These operations merge to main, create tags, and affect production.
+;; These operations merge to the production branch (gitflow.branch.master), create tags, and affect production.
 ;; More restricted than features — require explicit version + release message.
 ;; Deliberately excludes: feature operations (those are in git-flow)
 
@@ -106,7 +106,7 @@
                   :required   ["path" "version"]}}
 
    {:name        "gitflow_release_finish"
-    :description "Finish a release: merges release/<version> into main AND develop, creates an annotated tag, deletes the release branch. This is a production-affecting operation — confirm with the user before calling."
+    :description "Finish a release: merges release/<version> into the production branch (gitflow.branch.master) AND develop, creates an annotated tag, deletes the release branch. This is a production-affecting operation — confirm with the user before calling."
     :inputSchema {:type       "object"
                   :properties {"path"    {:type "string" :description "Absolute path to the git repository root"}
                                "version" {:type "string" :description "Release version, e.g. '1.2.0'"}
@@ -114,14 +114,14 @@
                   :required   ["path" "version" "message"]}}
 
    {:name        "gitflow_hotfix_start"
-    :description "Start a hotfix branch from main. Creates hotfix/<version>. Use for urgent production fixes only."
+    :description "Start a hotfix branch from the production branch (gitflow.branch.master). Creates hotfix/<version>. Use for urgent production fixes only."
     :inputSchema {:type       "object"
                   :properties {"path"    {:type "string" :description "Absolute path to the git repository root"}
                                "version" {:type "string" :description "Hotfix version, e.g. '1.2.1'"}}
                   :required   ["path" "version"]}}
 
    {:name        "gitflow_hotfix_finish"
-    :description "Finish a hotfix: merges hotfix/<version> into main AND develop, creates an annotated tag, deletes the hotfix branch. This is a production-affecting operation — confirm with the user before calling."
+    :description "Finish a hotfix: merges hotfix/<version> into the production branch (gitflow.branch.master) AND develop, creates an annotated tag, deletes the hotfix branch. This is a production-affecting operation — confirm with the user before calling."
     :inputSchema {:type       "object"
                   :properties {"path"    {:type "string" :description "Absolute path to the git repository root"}
                                "version" {:type "string" :description "Hotfix version, e.g. '1.2.1'"}

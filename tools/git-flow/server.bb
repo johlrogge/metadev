@@ -24,6 +24,19 @@
                                                           [(:err result)
                                                            (:out result)])))})))
 
+(defn run-git
+  "Run a plain git command in path. Same {:ok :output} shape as run-git-flow.
+   GIT_EDITOR=true is the same hang guard."
+  [path & args]
+  (let [result (apply p/shell {:out :string :err :string :continue true
+                               :extra-env {"GIT_EDITOR" "true"}}
+                      (into ["git" "-C" path] args))]
+    (if (zero? (:exit result))
+      {:ok true :output (str/trim (:out result))}
+      {:ok false :output (str/trim (str/join "\n" (remove str/blank?
+                                                          [(:err result)
+                                                           (:out result)])))})))
+
 (defn fmt [{:keys [ok output]}]
   (if ok
     (if (str/blank? output) "Done." output)
@@ -31,7 +44,83 @@
 
 (defn valid-name? [s]
   (and (not (str/blank? s))
-       (re-matches #"[a-zA-Z0-9._/-]+" s)))
+       (re-matches #"[a-zA-Z0-9._/-]+" s)
+       (not (str/starts-with? s "-"))
+       (not (str/includes? s ".."))
+       (not (str/ends-with? s "/"))
+       (not (str/ends-with? s ".lock"))))
+
+(defn gitflow-init
+  "Set up git flow with plain git (git flow AVH init has no flags for branch
+   names and does not reliably honour pre-set config)."
+  [path production development tag-prefix]
+  (let [production  (if (str/blank? production) "master" production)
+        development (if (str/blank? development) "develop" development)
+        tag-prefix  (or tag-prefix "")]
+    (when-not (valid-name? production)
+      (throw (ex-info "production must be a valid branch name" {})))
+    (when-not (valid-name? development)
+      (throw (ex-info "development must be a valid branch name" {})))
+    (when (= production development)
+      (throw (ex-info "production and development must differ" {})))
+    (when-not (or (= "" tag-prefix) (and (re-matches #"[a-zA-Z0-9._/-]+" tag-prefix)
+                                        (not (str/starts-with? tag-prefix "-"))))
+      (throw (ex-info "tag_prefix must match [a-zA-Z0-9._/-]+, not start with '-', or be empty" {})))
+    (let [existing (run-git path "config" "--get" "gitflow.branch.master")]
+      (if (:ok existing)
+        {:ok false
+         :output (str "already initialised: production=" (:output existing)
+                      ", development="
+                      (let [d (run-git path "config" "--get" "gitflow.branch.develop")]
+                        (if (:ok d) (:output d) "?")))}
+        (let [unborn? (not (:ok (run-git path "rev-parse" "--verify" "-q" "HEAD")))
+              prod-step
+              (if unborn?
+                (let [r (run-git path "symbolic-ref" "HEAD" (str "refs/heads/" production))]
+                  (if (:ok r)
+                    (run-git path "commit" "--allow-empty" "-m" "Initial commit")
+                    r))
+                (if (:ok (run-git path "rev-parse" "--verify" "-q" (str "refs/heads/" production)))
+                  {:ok true}
+                  (let [bs (run-git path "branch" "--format=%(refname:short)")]
+                    {:ok false
+                     :output (str "production branch '" production "' does not exist. "
+                                  "Existing local branches: "
+                                  (if (str/blank? (:output bs))
+                                    "(none)"
+                                    (str/join ", " (str/split-lines (:output bs))))
+                                  ". Pass `production` explicitly (e.g. \"main\").")})))]
+          (if-not (:ok prod-step)
+            prod-step
+            (let [dev-exists? (:ok (run-git path "rev-parse" "--verify" "-q"
+                                            (str "refs/heads/" development)))
+                  dev-step (if dev-exists?
+                             {:ok true}
+                             (run-git path "branch" development production))]
+              (if-not (:ok dev-step)
+                dev-step
+                (let [cfg [["gitflow.branch.master" production]
+                           ["gitflow.branch.develop" development]
+                           ["gitflow.prefix.feature" "feature/"]
+                           ["gitflow.prefix.bugfix" "bugfix/"]
+                           ["gitflow.prefix.release" "release/"]
+                           ["gitflow.prefix.hotfix" "hotfix/"]
+                           ["gitflow.prefix.support" "support/"]
+                           ["gitflow.prefix.versiontag" tag-prefix]]
+                      failed (some (fn [[k v]]
+                                     (let [r (run-git path "config" k v)]
+                                       (when-not (:ok r) r)))
+                                   cfg)]
+                  (or failed
+                      (let [co (run-git path "checkout" development)]
+                        (if-not (:ok co)
+                          co
+                          {:ok true
+                           :output (str "git flow initialised: production=" production
+                                        ", development=" development
+                                        (if dev-exists? " (existing)" " (created)")
+                                        ", tag prefix="
+                                        (if (= "" tag-prefix) "(none)" tag-prefix))}))))))))))))
 
 (defn handle-tool-call [name arguments]
   (try
@@ -40,7 +129,8 @@
         (throw (ex-info "path is required" {})))
       (case name
         "gitflow_init"
-        (fmt (run-git-flow path "init" "-d"))
+        (fmt (gitflow-init path (:production arguments) (:development arguments)
+                           (:tag_prefix arguments)))
 
         "gitflow_feature_start"
         (let [branch (:branch arguments)]
@@ -70,9 +160,12 @@
 
 (def tools
   [{:name        "gitflow_init"
-    :description "Initialize git flow in a repository with default branch names (main, develop, feature/, release/, hotfix/)."
+    :description "Set up git flow with the given branch names (production defaults to `master`, development to `develop`). Errors if git flow is already initialised, or if the production branch is missing on a non-empty repo (pass `production` explicitly, e.g. \"main\"). On an empty repo it creates the production branch with an empty initial commit."
     :inputSchema {:type       "object"
-                  :properties {"path" {:type "string" :description "Absolute path to the git repository root"}}
+                  :properties {"path"        {:type "string" :description "Absolute path to the git repository root"}
+                               "production"  {:type "string" :description "Production branch name (default: master)"}
+                               "development" {:type "string" :description "Development branch name (default: develop)"}
+                               "tag_prefix"  {:type "string" :description "Version tag prefix, e.g. \"v\" (default: empty)"}}
                   :required   ["path"]}}
 
    {:name        "gitflow_feature_start"
